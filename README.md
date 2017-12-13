@@ -12,3 +12,8 @@ VODID is the number you find in the url of the vod eg (https://www.twitch.tv/vid
 Call `concat.exe VODID HH MM SS HH MM SS`
 ### Ubuntu
 Call `./concat VODID HH MM SS HH MM SS`
+
+## More info
+[Blog post](https://www.arnevogel.com/standalone-concat-version/) about the tool.
+
+Send me feedback contact@concat.org
