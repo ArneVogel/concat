@@ -15,7 +15,7 @@ import (
 )
 
 const edgecastLinkBegin string = "http://"
-const edgecastLinkBaseEnd string = "index-dvr.m3u8"
+const edgecastLinkBaseEnd string = "index"
 const edgecastLinkM3U8End string = ".m3u8"
 const targetdurationStart string = "TARGETDURATION:"
 const targetdurationEnd string = "\n#ID3"
@@ -187,7 +187,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v", vodID, sig, token)
+	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
 
 	edgecastBaseURL, m3u8Link, err := accessUsherAPI(usherAPILink)
 	if err != nil {
