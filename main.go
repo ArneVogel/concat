@@ -299,8 +299,7 @@ func rightVersion() bool {
 	respString := string(body)
 
 	cs := strings.Index(respString, currentReleaseStart) + len(currentReleaseStart)
-	ce := strings.Index(respString[cs:len(respString)], currentReleaseEnd) + cs 
-
+	ce := cs + len(versionNumber)
 	return respString[cs:ce] == versionNumber
 }
 
