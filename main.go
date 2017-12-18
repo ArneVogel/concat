@@ -26,6 +26,10 @@ const resulutionEnd string = `"`
 const qualityStart string = `VIDEO="`
 const qualityEnd string = `"`
 const sourceQuality string = "chunked"
+const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
+const versionNumber string = "v0.2"
+const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
+const currentReleaseEnd string = `/concat"`
 
 var sem = semaphore.New(5)
 
@@ -281,7 +285,19 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 
 func rightVersion() bool {
-	return true
+	resp, err := http.Get(currentReleaseLink)
+	if err != nil {
+		fmt.Println("Couldn't access github while checking for most recent release.")
+	}
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	respString := string(body)
+
+	cs := strings.Index(respString, currentReleaseStart) + len(currentReleaseStart)
+	ce := strings.Index(respString, currentReleaseEnd) + cs 
+
+	return respString[cs:ce] == versionNumber
 }
 
 func main() {
@@ -297,7 +313,9 @@ func main() {
 
 	flag.Parse()
 
-
+	if !rightVersion() {
+		fmt.Printf("You are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
+	}
 	
 	if *vodID == standardVOD {
 		wrongInputNotification()
