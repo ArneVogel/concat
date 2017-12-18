@@ -12,14 +12,25 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"flag"
 )
 
 const edgecastLinkBegin string = "http://"
-const edgecastLinkBaseEnd string = "index-dvr.m3u8"
+const edgecastLinkBaseEnd string = "index"
 const edgecastLinkM3U8End string = ".m3u8"
 const targetdurationStart string = "TARGETDURATION:"
 const targetdurationEnd string = "\n#ID3"
 const ffmpegCMD string = `ffmpeg.exe`
+const resulutionStart string = `NAME="`
+const resulutionEnd string = `"`
+const qualityStart string = `VIDEO="`
+const qualityEnd string = `"`
+const sourceQuality string = "chunked"
+const chunkFileExtension string = ".ts"
+const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
+const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
+const currentReleaseEnd string = `/concat"`
+const versionNumber string = "v0.2"
 
 var sem = semaphore.New(5)
 
@@ -98,7 +109,7 @@ func startingChunk(sh int, sm int, ss int, target int) int {
 
 func downloadChunk(edgecastBaseURL string, chunkNum string, vodID string, wg *sync.WaitGroup) {
 	sem.Acquire()
-	resp, err := http.Get(edgecastBaseURL + chunkNum + ".ts")
+	resp, err := http.Get(edgecastBaseURL + chunkNum + chunkFileExtension)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -108,21 +119,18 @@ func downloadChunk(edgecastBaseURL string, chunkNum string, vodID string, wg *sy
 		os.Exit(1)
 	}
 
-	_ = ioutil.WriteFile(vodID+"_"+chunkNum+".mp4", body, 0644)
+	_ = ioutil.WriteFile(vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
 
 	defer wg.Done()
 	sem.Release()
 }
 
-/*
 
-
- */
 func ffmpegCombine(chunkNum int, startChunk int, vodID string) {
 	concat := `concat:`
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		concat += vodID + "_" + s + ".mp4|"
+		concat += vodID + "_" + s + chunkFileExtension + "|"
 	}
 	//Remove the last "|"
 	concat = concat[0 : len(concat)-1]
@@ -144,7 +152,7 @@ func deleteChunks(chunkNum int, startChunk int, vodID string) {
 	var del string
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		del = vodID + "_" + s + ".mp4"
+		del = vodID + "_" + s + chunkFileExtension
 		err := os.Remove(del)
 		if err != nil {
 			fmt.Println("could not delete all chunks, try manually deleting them", err)
@@ -152,26 +160,67 @@ func deleteChunks(chunkNum int, startChunk int, vodID string) {
 	}
 }
 
-func wrongInputNotification() {
-	fmt.Println("Call the program with the vod id, start and end time following: concat.exe VODID HH MM SS HH MM SS\nwhere VODID is the number you see in the url of the vod (https://www.twitch.tv/videos/123456789 => 123456789) the first HH MM SS is the start time and the second HH MM SS is the end time.\nSo downloading the first one and a half hours of a vod would be: concat.exe 123456789 0 0 0 1 30 0")
-	os.Exit(1)
+func printQualityOptions(vodIDString string) {
+	vodID, _ := strconv.Atoi(vodIDString)
+
+	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=aokchnui2n8q38g0vezl9hq6htzy4c", vodID)
+
+	fmt.Println("Contacting Twitch Server")
+
+	sig, token, err := accessTokenAPI(tokenAPILink)
+	if err != nil {
+		fmt.Println("Couldn't access twitch token api")
+		os.Exit(1)
+	}
+
+	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
+
+
+	resp, err := http.Get(usherAPILink)
+	if err != nil {
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	respString := string(body)
+	
+	qualityCount := strings.Count(respString, resulutionStart)
+	for i := 0; i < qualityCount; i++ {
+		rs := strings.Index(respString, resulutionStart) + len(resulutionStart)
+		re := strings.Index(respString[rs:len(respString)], resulutionEnd) + rs
+		qs := strings.Index(respString, qualityStart) + len(qualityStart)
+		qe := strings.Index(respString[rs:len(respString)], qualityEnd) + qs
+		if strings.Contains(respString[rs:re], "p60") {
+			fmt.Printf("resulution: %s, download with -quality=\"%s\"\n",respString[rs:re], respString[qs:qe])
+		} else {
+			fmt.Printf("resulution: %s, download with -quality=\"%s30\"\n",respString[rs:re], respString[qs:qe])
+		}
+		
+		respString = respString[qs:len(respString)]
+	}
 }
 
-func main() {
+func wrongInputNotification() {
+	fmt.Println("Call the program with the vod id, start and end time following: concat.exe VODID HH MM SS HH MM SS\nwhere VODID is the number you see in the url of the vod (https://www.twitch.tv/videos/123456789 => 123456789) the first HH MM SS is the start time and the second HH MM SS is the end time.\nSo downloading the first one and a half hours of a vod would be: concat.exe 123456789 0 0 0 1 30 0")
+}
+
+func downloadPartVOD(vodIDString string, start string, end string, quality string) {
 	var vodID, vodSH, vodSM, vodSS, vodEH, vodEM, vodES int
-	var vodIDString string
-	if len(os.Args) >= 8 {
-		vodIDString = os.Args[1]
-		vodID, _ = strconv.Atoi(os.Args[1])
-		vodSH, _ = strconv.Atoi(os.Args[2]) //start Hour
-		vodSM, _ = strconv.Atoi(os.Args[3]) //start minute
-		vodSS, _ = strconv.Atoi(os.Args[4]) //start second
-		vodEH, _ = strconv.Atoi(os.Args[5]) //end hour
-		vodEM, _ = strconv.Atoi(os.Args[6]) //end minute
-		vodES, _ = strconv.Atoi(os.Args[7]) //end second
-	} else {
-		wrongInputNotification()
-	}
+	
+	startArray := strings.Split(start, " ")
+	endArray := strings.Split(end, " ")
+
+	vodID, _ = strconv.Atoi(vodIDString)
+	vodSH, _ = strconv.Atoi(startArray[0]) //start Hour
+	vodSM, _ = strconv.Atoi(startArray[1]) //start minute
+	vodSS, _ = strconv.Atoi(startArray[2]) //start second
+	vodEH, _ = strconv.Atoi(endArray[0]) //end hour
+	vodEM, _ = strconv.Atoi(endArray[1]) //end minute
+	vodES, _ = strconv.Atoi(endArray[2]) //end second
 
 	if (vodSH*3600 + vodSM*60 + vodSS) > (vodEH*3600 + vodEM*60 + vodES) {
 		wrongInputNotification()
@@ -187,13 +236,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v", vodID, sig, token)
+	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
 
 	edgecastBaseURL, m3u8Link, err := accessUsherAPI(usherAPILink)
 	if err != nil {
 		fmt.Println("Count't access usher api")
 		os.Exit(1)
 	}
+
+	if quality != sourceQuality {
+		edgecastBaseURL = strings.Replace(edgecastBaseURL, sourceQuality, quality, 1)
+	}
+
 
 	fmt.Println("Getting Video info")
 
@@ -228,4 +282,58 @@ func main() {
 	deleteChunks(chunkNum, startChunk, vodIDString)
 
 	fmt.Println("All done!")
+}
+
+
+func rightVersion() bool {
+	resp, err := http.Get(currentReleaseLink)
+	if err != nil {
+		fmt.Println("Couldn't access github while checking for most recent release.")
+	}
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	respString := string(body)
+
+	cs := strings.Index(respString, currentReleaseStart) + len(currentReleaseStart)
+	ce := strings.Index(respString, currentReleaseEnd) + cs 
+
+	return respString[cs:ce] == versionNumber
+}
+
+func main() {
+
+	qualityInfo := flag.Bool("qualityinfo", false, "if you want to see the avaliable quality options")
+
+	standardStartAndEnd := "HH MM SS"
+	standardVOD := "123456789"
+	vodID := flag.String("vod", standardVOD, "the vod id https://www.twitch.tv/videos/123456789")
+	start := flag.String("start", standardStartAndEnd, "For example: 0 0 0 for starting at the bedinning of the vod")
+	end := flag.String("end", standardStartAndEnd, "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
+	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
+
+	flag.Parse()
+
+	if !rightVersion() {
+		fmt.Printf("You are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
+	}
+	
+	if *vodID == standardVOD {
+		wrongInputNotification()
+		os.Exit(1)
+	}
+
+	if *qualityInfo {
+		printQualityOptions(*vodID)
+	}
+
+	if *start == standardStartAndEnd || *end == standardStartAndEnd {
+		wrongInputNotification()
+		os.Exit(1)
+	}
+
+	downloadPartVOD(*vodID, *start, *end, *quality); // downloadPartVOD exits the program after finishing
+	os.Exit(1)
+	
+
 }
