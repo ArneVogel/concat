@@ -26,10 +26,11 @@ const resulutionEnd string = `"`
 const qualityStart string = `VIDEO="`
 const qualityEnd string = `"`
 const sourceQuality string = "chunked"
+const chunkFileExtension string = ".ts"
 const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
-const versionNumber string = "v0.2"
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
+const versionNumber string = "v0.2"
 
 var sem = semaphore.New(5)
 
@@ -108,7 +109,7 @@ func startingChunk(sh int, sm int, ss int, target int) int {
 
 func downloadChunk(edgecastBaseURL string, chunkNum string, vodID string, wg *sync.WaitGroup) {
 	sem.Acquire()
-	resp, err := http.Get(edgecastBaseURL + chunkNum + ".ts")
+	resp, err := http.Get(edgecastBaseURL + chunkNum + chunkFileExtension)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -118,7 +119,7 @@ func downloadChunk(edgecastBaseURL string, chunkNum string, vodID string, wg *sy
 		os.Exit(1)
 	}
 
-	_ = ioutil.WriteFile(vodID+"_"+chunkNum+".mp4", body, 0644)
+	_ = ioutil.WriteFile(vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
 
 	defer wg.Done()
 	sem.Release()
@@ -129,7 +130,7 @@ func ffmpegCombine(chunkNum int, startChunk int, vodID string) {
 	concat := `concat:`
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		concat += vodID + "_" + s + ".mp4|"
+		concat += vodID + "_" + s + chunkFileExtension + "|"
 	}
 	//Remove the last "|"
 	concat = concat[0 : len(concat)-1]
@@ -151,7 +152,7 @@ func deleteChunks(chunkNum int, startChunk int, vodID string) {
 	var del string
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		del = vodID + "_" + s + ".mp4"
+		del = vodID + "_" + s + chunkFileExtension
 		err := os.Remove(del)
 		if err != nil {
 			fmt.Println("could not delete all chunks, try manually deleting them", err)
@@ -324,7 +325,6 @@ func main() {
 
 	if *qualityInfo {
 		printQualityOptions(*vodID)
-		os.Exit(1)
 	}
 
 	if *start == standardStartAndEnd || *end == standardStartAndEnd {
