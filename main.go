@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"flag"
+	"runtime"
 )
 
 const edgecastLinkBegin string = "http://"
@@ -20,7 +21,6 @@ const edgecastLinkBaseEnd string = "index"
 const edgecastLinkM3U8End string = ".m3u8"
 const targetdurationStart string = "TARGETDURATION:"
 const targetdurationEnd string = "\n#ID3"
-const ffmpegCMD string = `ffmpeg.exe`
 const resulutionStart string = `NAME="`
 const resulutionEnd string = `"`
 const qualityStart string = `VIDEO="`
@@ -31,6 +31,9 @@ const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
 const versionNumber string = "v0.2"
+var ffmpegCMD string = `ffmpeg`
+
+
 
 var sem = semaphore.New(5)
 
@@ -299,6 +302,12 @@ func rightVersion() bool {
 	ce := strings.Index(respString[cs:len(respString)], currentReleaseEnd) + cs 
 
 	return respString[cs:ce] == versionNumber
+}
+
+func init() {
+	if runtime.GOOS == "windows" {
+	    ffmpegCMD = `ffmpeg.exe`
+	}
 }
 
 func main() {
