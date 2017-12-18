@@ -205,7 +205,7 @@ func printQualityOptions(vodIDString string) {
 }
 
 func wrongInputNotification() {
-	fmt.Println("Call the program with the vod id, start and end time following: concat.exe VODID HH MM SS HH MM SS\nwhere VODID is the number you see in the url of the vod (https://www.twitch.tv/videos/123456789 => 123456789) the first HH MM SS is the start time and the second HH MM SS is the end time.\nSo downloading the first one and a half hours of a vod would be: concat.exe 123456789 0 0 0 1 30 0")
+	fmt.Println("Call the program with -help for information on how to use it :^)")
 }
 
 func downloadPartVOD(vodIDString string, start string, end string, quality string) {
