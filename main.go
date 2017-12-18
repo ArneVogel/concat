@@ -30,7 +30,7 @@ const chunkFileExtension string = ".ts"
 const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
-const versionNumber string = "v0.2"
+const versionNumber string = "v0.1"
 
 var sem = semaphore.New(5)
 
@@ -296,7 +296,7 @@ func rightVersion() bool {
 	respString := string(body)
 
 	cs := strings.Index(respString, currentReleaseStart) + len(currentReleaseStart)
-	ce := strings.Index(respString, currentReleaseEnd) + cs 
+	ce := strings.Index(respString[cs:len(respString)], currentReleaseEnd) + cs 
 
 	return respString[cs:ce] == versionNumber
 }
