@@ -30,7 +30,7 @@ const chunkFileExtension string = ".ts"
 const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
-const versionNumber string = "v0.1"
+const versionNumber string = "v0.2"
 
 var sem = semaphore.New(5)
 
@@ -327,13 +327,9 @@ func main() {
 		printQualityOptions(*vodID)
 	}
 
-	if *start == standardStartAndEnd || *end == standardStartAndEnd {
-		wrongInputNotification()
-		os.Exit(1)
+	if (*start != standardStartAndEnd && *end != standardStartAndEnd) {
+		downloadPartVOD(*vodID, *start, *end, *quality);
 	}
 
-	downloadPartVOD(*vodID, *start, *end, *quality); // downloadPartVOD exits the program after finishing
 	os.Exit(1)
-	
-
 }
