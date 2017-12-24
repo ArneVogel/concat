@@ -173,7 +173,7 @@ func deleteChunks(newpath string, chunkNum int, startChunk int, vodID string) {
 func printQualityOptions(vodIDString string) {
 	vodID, _ := strconv.Atoi(vodIDString)
 
-	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=aokchnui2n8q38g0vezl9hq6htzy4c", vodID)
+	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=uocfaf75lmkv4t11b4er9jjmbjmkxe", vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
@@ -239,7 +239,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		}
 	}
 
-	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=aokchnui2n8q38g0vezl9hq6htzy4c", vodID)
+	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=uocfaf75lmkv4t11b4er9jjmbjmkxe", vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
@@ -249,9 +249,19 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 
+	fmt.Printf("\nSig: %s, Token: %s\n", sig, token)
+	//os.Exit(1)
+
 	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
 
+	fmt.Printf("\nusherAPILink: %s\n", usherAPILink)
+	//os.Exit(1)
+
 	edgecastBaseURL, m3u8Link, err := accessUsherAPI(usherAPILink)
+
+	fmt.Printf("\nedgecastBaseURL: %s\nm3u8Link: %s\n", edgecastBaseURL, m3u8Link)
+	//os.Exit(1)
+
 	if err != nil {
 		fmt.Println("Count't access usher api")
 		os.Exit(1)
@@ -270,21 +280,29 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 
+	fmt.Printf("\nm3u8List:\n%s\n", m3u8List)
+
 	var re = regexp.MustCompile("\n([^#]+)\n")
 	match := re.FindAllStringSubmatch(m3u8List, -1)
+	//fmt.Println("Matched:")
+	//fmt.Printf("%q\n", match)
 
 	var m3u8Array []string
 
 	for _, element := range match {
+		//fmt.Printf("\nItem: %s", element[1])
 		m3u8Array = append(m3u8Array, element[1])
 	}
 
 	fmt.Printf("\nItems list: %v", m3u8Array)
+	//os.Exit(1)
 
 	var chunkNum, startChunk int
 
 	if end != "full" {
 		targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
+
+		fmt.Printf("\ntargetdurationStart: %s\ntargetdurationEnd: %v\ntargetduration: %v\n", targetdurationStart, targetdurationEnd, targetduration)
 
 		chunkNum = numberOfChunks(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
 		startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
@@ -294,6 +312,9 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		chunkNum = len(m3u8Array)
 		startChunk = 0
 	}
+
+	fmt.Printf("\nchunkNum: %v\nstartChunk: %v\n", chunkNum, startChunk)
+	//os.Exit(1)
 
 	var wg sync.WaitGroup
 	wg.Add(chunkNum)
@@ -306,12 +327,16 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 	fmt.Printf("Created temp dir: %s\n", newpath)
+	//os.Exit(1)
+
 	fmt.Println("Starting Download")
 
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 
 		s := strconv.Itoa(i)
 		n := m3u8Array[i]
+		//fmt.Printf("chunk: %s\nname: %s\n", s, n)
+		//os.Exit(1)
 		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
 	}
 	wg.Wait()
@@ -377,12 +402,13 @@ func main() {
 
 	if *qualityInfo {
 		printQualityOptions(*vodID)
+		os.Exit(1)
 	}
 
 	if (*start != standardStartAndEnd && *end != standardStartAndEnd) {
 		downloadPartVOD(*vodID, *start, *end, *quality);
 	} else {
-		downloadPartVOD(*vodID, "", "full", *quality);
+		downloadPartVOD(*vodID, "0", "full", *quality);
 	}
 
 	os.Exit(1)
