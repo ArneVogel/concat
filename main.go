@@ -74,7 +74,7 @@ func accessUsherAPI(usherAPILink string) (string, string, error) {
 		return "", "", err
 	}
 
-	fmt.Printf("\naccessUsherAPI:\n%s\n", body)
+	//fmt.Printf("\naccessUsherAPI:\n%s\n", body)
 
 	respString := string(body)
 
@@ -117,7 +117,7 @@ func startingChunk(sh int, sm int, ss int, target int) int {
 func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chunkName string, vodID string, wg *sync.WaitGroup) {
 	sem.Acquire()
 
-	fmt.Printf("Downloading: %s\n", edgecastBaseURL + chunkName)
+	//fmt.Printf("Downloading: %s\n", edgecastBaseURL + chunkName)
 
 	resp, err := http.Get(edgecastBaseURL + chunkName)
 	if err != nil {
@@ -279,7 +279,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		m3u8Array = append(m3u8Array, element[1])
 	}
 
-	fmt.Printf("\nItems list: %v", m3u8Array)
+	//fmt.Printf("\nItems list: %v", m3u8Array)
 
 	var chunkNum, startChunk int
 
