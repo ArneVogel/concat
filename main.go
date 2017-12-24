@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"github.com/abiosoft/semaphore"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -72,6 +74,8 @@ func accessUsherAPI(usherAPILink string) (string, string, error) {
 		return "", "", err
 	}
 
+	fmt.Printf("\naccessUsherAPI:\n%s\n", body)
+
 	respString := string(body)
 
 	m3u8Link := respString[strings.Index(respString, edgecastLinkBegin) : strings.Index(respString, edgecastLinkM3U8End)+len(edgecastLinkM3U8End)]
@@ -110,9 +114,12 @@ func startingChunk(sh int, sm int, ss int, target int) int {
 	return (start_seconds / target)
 }
 
-func downloadChunk(edgecastBaseURL string, chunkNum string, vodID string, wg *sync.WaitGroup) {
+func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chunkName string, vodID string, wg *sync.WaitGroup) {
 	sem.Acquire()
-	resp, err := http.Get(edgecastBaseURL + chunkNum + chunkFileExtension)
+
+	fmt.Printf("Downloading: %s\n", edgecastBaseURL + chunkName)
+
+	resp, err := http.Get(edgecastBaseURL + chunkName)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -122,18 +129,18 @@ func downloadChunk(edgecastBaseURL string, chunkNum string, vodID string, wg *sy
 		os.Exit(1)
 	}
 
-	_ = ioutil.WriteFile(vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
+	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
 
 	defer wg.Done()
 	sem.Release()
 }
 
 
-func ffmpegCombine(chunkNum int, startChunk int, vodID string) {
+func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 	concat := `concat:`
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		concat += vodID + "_" + s + chunkFileExtension + "|"
+		concat += newpath + "/" + vodID + "_" + s + chunkFileExtension + "|"
 	}
 	//Remove the last "|"
 	concat = concat[0 : len(concat)-1]
@@ -151,11 +158,11 @@ func ffmpegCombine(chunkNum int, startChunk int, vodID string) {
 	}
 }
 
-func deleteChunks(chunkNum int, startChunk int, vodID string) {
+func deleteChunks(newpath string, chunkNum int, startChunk int, vodID string) {
 	var del string
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		del = vodID + "_" + s + chunkFileExtension
+		del = newpath + "/" + vodID + "_" + s + chunkFileExtension
 		err := os.Remove(del)
 		if err != nil {
 			fmt.Println("could not delete all chunks, try manually deleting them", err)
@@ -190,7 +197,7 @@ func printQualityOptions(vodIDString string) {
 	}
 
 	respString := string(body)
-	
+
 	qualityCount := strings.Count(respString, resulutionStart)
 	for i := 0; i < qualityCount; i++ {
 		rs := strings.Index(respString, resulutionStart) + len(resulutionStart)
@@ -202,7 +209,7 @@ func printQualityOptions(vodIDString string) {
 		} else {
 			fmt.Printf("resulution: %s, download with -quality=\"%s30\"\n",respString[rs:re], respString[qs:qe])
 		}
-		
+
 		respString = respString[qs:len(respString)]
 	}
 }
@@ -213,20 +220,23 @@ func wrongInputNotification() {
 
 func downloadPartVOD(vodIDString string, start string, end string, quality string) {
 	var vodID, vodSH, vodSM, vodSS, vodEH, vodEM, vodES int
-	
-	startArray := strings.Split(start, " ")
-	endArray := strings.Split(end, " ")
 
 	vodID, _ = strconv.Atoi(vodIDString)
-	vodSH, _ = strconv.Atoi(startArray[0]) //start Hour
-	vodSM, _ = strconv.Atoi(startArray[1]) //start minute
-	vodSS, _ = strconv.Atoi(startArray[2]) //start second
-	vodEH, _ = strconv.Atoi(endArray[0]) //end hour
-	vodEM, _ = strconv.Atoi(endArray[1]) //end minute
-	vodES, _ = strconv.Atoi(endArray[2]) //end second
 
-	if (vodSH*3600 + vodSM*60 + vodSS) > (vodEH*3600 + vodEM*60 + vodES) {
-		wrongInputNotification()
+	if end != "full" {
+		startArray := strings.Split(start, " ")
+		endArray := strings.Split(end, " ")
+
+		vodSH, _ = strconv.Atoi(startArray[0]) //start Hour
+		vodSM, _ = strconv.Atoi(startArray[1]) //start minute
+		vodSS, _ = strconv.Atoi(startArray[2]) //start second
+		vodEH, _ = strconv.Atoi(endArray[0]) //end hour
+		vodEM, _ = strconv.Atoi(endArray[1]) //end minute
+		vodES, _ = strconv.Atoi(endArray[2]) //end second
+
+		if (vodSH*3600 + vodSM*60 + vodSS) > (vodEH*3600 + vodEM*60 + vodES) {
+			wrongInputNotification()
+		}
 	}
 
 	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=aokchnui2n8q38g0vezl9hq6htzy4c", vodID)
@@ -260,29 +270,63 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 
-	targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
-	chunkNum := numberOfChunks(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
-	startChunk := startingChunk(vodSH, vodSM, vodSS, targetduration)
+	var re = regexp.MustCompile("\n([^#]+)\n")
+	match := re.FindAllStringSubmatch(m3u8List, -1)
+
+	var m3u8Array []string
+
+	for _, element := range match {
+		m3u8Array = append(m3u8Array, element[1])
+	}
+
+	fmt.Printf("\nItems list: %v", m3u8Array)
+
+	var chunkNum, startChunk int
+
+	if end != "full" {
+		targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
+
+		chunkNum = numberOfChunks(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
+		startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
+	} else {
+		fmt.Println("Dowbloading full vod")
+
+		chunkNum = len(m3u8Array)
+		startChunk = 0
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(chunkNum)
 
+	newpath := filepath.Join(".", "_" + vodIDString)
+
+	err = os.MkdirAll(newpath, os.ModePerm)
+	if err != nil {
+		fmt.Println("Count't create directory")
+		os.Exit(1)
+	}
+	fmt.Printf("Created temp dir: %s\n", newpath)
 	fmt.Println("Starting Download")
 
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
 
 		s := strconv.Itoa(i)
-		go downloadChunk(edgecastBaseURL, s, vodIDString, &wg)
+		n := m3u8Array[i]
+		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
 	}
 	wg.Wait()
 
 	fmt.Println("Combining parts")
 
-	ffmpegCombine(chunkNum, startChunk, vodIDString)
+	ffmpegCombine(newpath, chunkNum, startChunk, vodIDString)
 
 	fmt.Println("Deleting chunks")
 
-	deleteChunks(chunkNum, startChunk, vodIDString)
+	deleteChunks(newpath, chunkNum, startChunk, vodIDString)
+
+	fmt.Println("Deleting temp dir")
+
+	os.Remove(newpath)
 
 	fmt.Println("All done!")
 }
@@ -325,7 +369,7 @@ func main() {
 	if !rightVersion() {
 		fmt.Printf("You are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
 	}
-	
+
 	if *vodID == standardVOD {
 		wrongInputNotification()
 		os.Exit(1)
@@ -337,6 +381,8 @@ func main() {
 
 	if (*start != standardStartAndEnd && *end != standardStartAndEnd) {
 		downloadPartVOD(*vodID, *start, *end, *quality);
+	} else {
+		downloadPartVOD(*vodID, "", "full", *quality);
 	}
 
 	os.Exit(1)
