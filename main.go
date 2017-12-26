@@ -181,6 +181,7 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 	}
 }
 
+
 func deleteChunks(newpath string, chunkNum int, startChunk int, vodID string) {
 	var del string
 	for i := startChunk; i < (startChunk + chunkNum); i++ {
@@ -295,12 +296,17 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 
+	fmt.Println(edgecastURLmap)
+
+	// I don't see what this does. With this you can't download in source quality (chunked).
+	/*
 	if quality == sourceQuality {
 		for key, _ := range edgecastURLmap {
 			quality = key
 			break
 		}
 	}
+	*/
 
 	m3u8Link, ok := edgecastURLmap[quality]
 
@@ -412,6 +418,7 @@ func rightVersion() bool {
 	ce := cs + len(versionNumber)
 	return respString[cs:ce] == versionNumber
 }
+
 
 func init() {
 	if runtime.GOOS == "windows" {
