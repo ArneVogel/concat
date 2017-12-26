@@ -74,14 +74,11 @@ func accessUsherAPI(usherAPILink string) (map[string]string, error) {
 		return make(map[string]string), err
 	}
 
-	if debug {
-		fmt.Printf("\naccessUsherAPI:\n%s\n", body)
-	}
-
 	respString := string(body)
 
-	//m3u8LinkMap := respString[strings.Index(respString, edgecastLinkBegin) : strings.Index(respString, edgecastLinkM3U8End)+len(edgecastLinkM3U8End)]
-	//edgecastBaseURL := respString[strings.Index(respString, edgecastLinkBegin):strings.Index(respString, edgecastLinkBaseEnd)]
+	if debug {
+		fmt.Printf("\nUsher API response:\n%s\n", respString)
+	}
 
 	var re = regexp.MustCompile(qualityStart+"([^\"]+)"+qualityEnd+"\n([^\n]+)\n")
 	match := re.FindAllStringSubmatch(respString, -1)
@@ -256,6 +253,13 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		if (vodSH*3600 + vodSM*60 + vodSS) > (vodEH*3600 + vodEM*60 + vodES) {
 			wrongInputNotification()
 		}
+	}
+
+	_, err := os.Stat(vodIDString + ".mp4")
+
+	if ( err == nil || !os.IsNotExist(err)) {
+		fmt.Printf("Destination file %s already exists!\n", vodIDString + ".mp4")
+		os.Exit(1)
 	}
 
 	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=uocfaf75lmkv4t11b4er9jjmbjmkxe", vodID)
