@@ -36,7 +36,8 @@ const versionNumber string = "v0.2"
 var ffmpegCMD string = `ffmpeg`
 
 var debug bool
-
+var twitch_client_id string = "uocfaf75lmkv4t11b4er9jjmbjmkxe"
+//uocfaf75lmkv4t11b4er9jjmbjmkxe
 var sem = semaphore.New(5)
 
 /*
@@ -44,6 +45,10 @@ var sem = semaphore.New(5)
 	signature and token are needed for accessing the usher api
 */
 func accessTokenAPI(tokenAPILink string) (string, string, error) {
+	if debug {
+		fmt.Printf("\ntokenAPILink: %s\n", tokenAPILink)
+	}
+
 	resp, err := http.Get(tokenAPILink)
 	if err != nil {
 		return "", "", err
@@ -189,7 +194,7 @@ func deleteChunks(newpath string, chunkNum int, startChunk int, vodID string) {
 func printQualityOptions(vodIDString string) {
 	vodID, _ := strconv.Atoi(vodIDString)
 
-	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=uocfaf75lmkv4t11b4er9jjmbjmkxe", vodID)
+	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
@@ -262,7 +267,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 
-	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id=uocfaf75lmkv4t11b4er9jjmbjmkxe", vodID)
+	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
