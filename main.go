@@ -79,9 +79,7 @@ func accessUsherAPI(usherAPILink string) (map[string]string, error) {
 		return make(map[string]string), err
 	}
 
-
-  
-  respString := string(body)
+	respString := string(body)
 
 	if debug {
 		fmt.Printf("\nUsher API response:\n%s\n", respString)
@@ -180,7 +178,6 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 		fmt.Println("ffmpeg error")
 	}
 }
-
 
 func deleteChunks(newpath string, chunkNum int, startChunk int, vodID string) {
 	var del string
@@ -296,25 +293,65 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		os.Exit(1)
 	}
 
-	fmt.Println(edgecastURLmap)
+	if debug {
+		fmt.Println(edgecastURLmap)
+	}
 
 	// I don't see what this does. With this you can't download in source quality (chunked).
-	/*
-	if quality == sourceQuality {
-		for key, _ := range edgecastURLmap {
-			quality = key
-			break
-		}
-	}
-	*/
+	// Fixed. But "chunked" playlist not always available, have to loop and find max quality manually
 
 	m3u8Link, ok := edgecastURLmap[quality]
 
-	if !ok {
-		fmt.Printf("Couldn't find quality: %s\n", quality)
-		os.Exit(1)
-	} else {
+	if ok {
 		fmt.Printf("Selected quality: %s\n", quality)
+	} else {
+		fmt.Printf("Couldn't find quality: %s\n", quality)
+
+		// Try to find source quality playlist
+		if quality != sourceQuality {
+			quality = sourceQuality
+
+			m3u8Link, ok = edgecastURLmap[quality]
+		}
+
+		if ok {
+			fmt.Printf("Downloading in source quality: %s\n", quality)
+		} else {
+			// Quality still not matched
+			resolution_max := 0
+			fps_max := 0
+			resolution_tmp := 0
+			fps_tmp := 0
+			var key_tmp []string
+
+			// Find max quality
+			for key, _ := range edgecastURLmap {
+				key_tmp = strings.Split(key, "p")
+
+				resolution_tmp, _ = strconv.Atoi(key_tmp[0])
+
+				if len(key_tmp) > 1 {
+					fps_tmp, _ = strconv.Atoi(key_tmp[1])
+				} else {
+					fps_tmp = 0
+				}
+
+				if ( resolution_tmp > resolution_max || resolution_tmp == resolution_max && fps_tmp > fps_max ) {
+					quality = key
+					fps_max = fps_tmp
+					resolution_max = resolution_tmp
+				}
+			}
+
+			m3u8Link, ok = edgecastURLmap[quality]
+
+			if ok {
+				fmt.Printf("Downloading in max available quality: %s\n", quality)
+			} else {
+				fmt.Println("No available quality options found")
+				os.Exit(1)
+			}
+		}
 	}
 
 	edgecastBaseURL := m3u8Link
@@ -403,7 +440,6 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 	fmt.Println("All done!")
 }
 
-
 func rightVersion() bool {
 	resp, err := http.Get(currentReleaseLink)
 	if err != nil {
@@ -418,7 +454,6 @@ func rightVersion() bool {
 	ce := cs + len(versionNumber)
 	return respString[cs:ce] == versionNumber
 }
-
 
 func init() {
 	if runtime.GOOS == "windows" {
