@@ -307,7 +307,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 	} else {
 		fmt.Printf("Couldn't find quality: %s\n", quality)
 
-		//try to find source quality playlist
+		// Try to find source quality playlist
 		if quality != sourceQuality {
 			quality = sourceQuality
 
@@ -317,14 +317,14 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		if ok {
 			fmt.Printf("Downloading in source quality: %s\n", quality)
 		} else {
-			//quality still not matched
+			// Quality still not matched
 			resolution_max := 0
 			fps_max := 0
 			resolution_tmp := 0
 			fps_tmp := 0
 			var key_tmp []string
 
-			//find max quality
+			// Find max quality
 			for key, _ := range edgecastURLmap {
 				key_tmp = strings.Split(key, "p")
 
@@ -343,7 +343,14 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 				}
 			}
 
-			fmt.Printf("Downloading in max available quality: %s\n", quality)
+			m3u8Link, ok = edgecastURLmap[quality]
+
+			if ok {
+				fmt.Printf("Downloading in max available quality: %s\n", quality)
+			} else {
+				fmt.Println("No available quality options found")
+				os.Exit(1)
+			}
 		}
 	}
 
