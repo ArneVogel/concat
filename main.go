@@ -36,8 +36,8 @@ const versionNumber string = "v0.2"
 var ffmpegCMD string = `ffmpeg`
 
 var debug bool
-var twitch_client_id string = "uocfaf75lmkv4t11b4er9jjmbjmkxe"
-//uocfaf75lmkv4t11b4er9jjmbjmkxe
+var twitch_client_id string = "aokchnui2n8q38g0vezl9hq6htzy4c"
+
 var sem = semaphore.New(5)
 
 /*
