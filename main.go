@@ -79,7 +79,9 @@ func accessUsherAPI(usherAPILink string) (map[string]string, error) {
 		return make(map[string]string), err
 	}
 
-	respString := string(body)
+
+  
+  respString := string(body)
 
 	if debug {
 		fmt.Printf("\nUsher API response:\n%s\n", respString)
