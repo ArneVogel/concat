@@ -224,14 +224,10 @@ func printQualityOptions(vodIDString string) {
 		rs := strings.Index(respString, resolutionStart) + len(resolutionStart)
 		re := strings.Index(respString[rs:len(respString)], resolutionEnd) + rs
 		qs := strings.Index(respString, qualityStart) + len(qualityStart)
-		qe := strings.Index(respString[rs:len(respString)], qualityEnd) + qs
-		if strings.Contains(respString[rs:re], "p60") {
-			fmt.Printf("resolution: %s, download with -quality=\"%s\"\n",respString[rs:re], respString[qs:qe])
-		} else {
-			fmt.Printf("resolution: %s, download with -quality=\"%s30\"\n",respString[rs:re], respString[qs:qe])
-		}
+		qe := strings.Index(respString[qs:len(respString)], qualityEnd) + qs
+		fmt.Printf("resolution: %s, download with -quality=\"%s\"\n", respString[rs:re], respString[qs:qe])
 
-		respString = respString[qs:len(respString)]
+		respString = respString[qe:len(respString)]
 	}
 }
 
