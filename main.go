@@ -330,13 +330,10 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	var re = regexp.MustCompile("\n([^#]+)\n")
 	match := re.FindAllStringSubmatch(m3u8List, -1)
-	//fmt.Println("Matched:")
-	//fmt.Printf("%q\n", match)
 
 	var m3u8Array []string
 
 	for _, element := range match {
-		//fmt.Printf("\nItem: %s", element[1])
 		m3u8Array = append(m3u8Array, element[1])
 	}
 
@@ -348,7 +345,6 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	if end != "full" {
 		targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
-		//fmt.Printf("\ntargetdurationStart: %s\ntargetdurationEnd: %v\ntargetduration: %v\n", targetdurationStart, targetdurationEnd, targetduration)
 		chunkNum = numberOfChunks(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
 		startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
 	} else {
