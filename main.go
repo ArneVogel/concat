@@ -32,7 +32,7 @@ const chunkFileExtension string = ".ts"
 const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
-const versionNumber string = "v0.2"
+const versionNumber string = "v0.2.1"
 var ffmpegCMD string = `ffmpeg`
 
 var debug bool
@@ -475,7 +475,7 @@ func main() {
 	debug = *debugFlag;
 
 	if !rightVersion() {
-		fmt.Printf("You are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
+		fmt.Printf("\nYou are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
 	}
 
 	if *vodID == standardVOD {
