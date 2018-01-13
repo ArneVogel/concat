@@ -18,8 +18,12 @@ import (
 	"runtime"
 )
 
+//new style of edgecast links: http://vod089-ttvnw.akamaized.net/1059582120fbff1a392a_reinierboortman_26420932624_719978480/chunked/highlight-180380104.m3u8
+//Old style of edgecast links: http://vod164-ttvnw.akamaized.net/7a16586e4b7ef40300ba_zizaran_27258736688_772341213/chunked/index-dvr.m3u8
+
 const edgecastLinkBegin string = "http://"
-const edgecastLinkBaseEnd string = "index"
+const edgecastLinkBaseEndOld string = "index" 
+const edgeCastLinkBaseEnd string =  "highlight"
 const edgecastLinkM3U8End string = ".m3u8"
 const targetdurationStart string = "TARGETDURATION:"
 const targetdurationEnd string = "\n#ID3"
@@ -350,9 +354,13 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 			}
 		}
 	}
-
 	edgecastBaseURL := m3u8Link
-	edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
+	if strings.Contains(edgecastBaseURL, edgecastLinkBaseEndOld) {
+		edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEndOld)]
+	} else {
+		edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
+	}
+	
 
 	if debug {
 		fmt.Printf("\nedgecastBaseURL: %s\nm3u8Link: %s\n", edgecastBaseURL, m3u8Link)
