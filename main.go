@@ -41,6 +41,7 @@ var ffmpegCMD string = `ffmpeg`
 
 var debug bool
 var twitch_client_id string = "aokchnui2n8q38g0vezl9hq6htzy4c"
+var chunksDownloaded int = 0
 
 var sem = semaphore.New(5)
 
@@ -136,8 +137,6 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chun
 
 	if debug {
 		fmt.Printf("Downloading: %s\n", edgecastBaseURL + chunkName)
-	} else {
-		fmt.Print(".");
 	}
 
 	resp, err := http.Get(edgecastBaseURL + chunkName)
@@ -427,6 +426,11 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		s := strconv.Itoa(i)
 		n := m3u8Array[i]
 		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
+		chunksDownloaded++ 
+		if chunksDownloaded % 5 == 0 // To give the user information not just if chunks are being downloaded or not but also how close the program is to completing it's task.
+		{
+			fmt.Println("Downloaded " + chunksDownloaded + " of " chunkNum)
+		}
 	}
 	wg.Wait()
 
