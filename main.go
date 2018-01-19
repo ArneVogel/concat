@@ -41,6 +41,7 @@ var ffmpegCMD string = `ffmpeg`
 
 var debug bool
 var twitch_client_id string = "aokchnui2n8q38g0vezl9hq6htzy4c"
+var chunksDownloaded int = 0
 
 var sem = semaphore.New(5)
 
@@ -131,13 +132,11 @@ func startingChunk(sh int, sm int, ss int, target int) int {
 	return (start_seconds / target)
 }
 
-func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chunkName string, vodID string, wg *sync.WaitGroup) {
+func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chunkName string, vodID string, wg *sync.WaitGroup, totalchunk int) {
 	sem.Acquire()
 
 	if debug {
 		fmt.Printf("Downloading: %s\n", edgecastBaseURL + chunkName)
-	} else {
-		fmt.Print(".");
 	}
 
 	resp, err := http.Get(edgecastBaseURL + chunkName)
@@ -151,6 +150,10 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chun
 	}
 
 	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
+	chunksDownloaded++
+	if chunksDownloaded % 5 == 0 {
+		fmt.Println("Finished Chunks: " + strconv.Itoa(chunksDownloaded) + " of " + strconv.Itoa(totalchunk))
+	}
 
 	defer wg.Done()
 	sem.Release()
@@ -392,7 +395,6 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 	}
 
 	var chunkNum, startChunk int
-
 	if end != "full" {
 		targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
 		chunkNum = numberOfChunks(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
@@ -426,7 +428,8 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 		s := strconv.Itoa(i)
 		n := m3u8Array[i]
-		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
+		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg, chunkNum)
+		
 	}
 	wg.Wait()
 
@@ -471,9 +474,9 @@ func main() {
 	qualityInfo := flag.Bool("qualityinfo", false, "if you want to see the avaliable quality options")
 
 	standardStartAndEnd := "HH MM SS"
-	standardVOD := "123456789"
+	standardVOD := "123456789"	
 	vodID := flag.String("vod", standardVOD, "the vod id https://www.twitch.tv/videos/123456789")
-	start := flag.String("start", standardStartAndEnd, "For example: 0 0 0 for starting at the bedinning of the vod")
+	start := flag.String("start", standardStartAndEnd, "For example: 0 0 0 for starting at the beginning of the vod")
 	end := flag.String("end", standardStartAndEnd, "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
 	debugFlag := flag.Bool("debug", false, "debug output")
