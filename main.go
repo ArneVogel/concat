@@ -132,6 +132,8 @@ func startingChunk(sh int, sm int, ss int, target int) int {
 }
 
 func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chunkName string, vodID string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	sem.Acquire()
 
 	if debug {
@@ -152,7 +154,6 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chun
 
 	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
 
-	defer wg.Done()
 	sem.Release()
 }
 
