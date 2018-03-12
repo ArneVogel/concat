@@ -49,9 +49,7 @@ var sem = semaphore.New(5)
 	signature and token are needed for accessing the usher api
 */
 func accessTokenAPI(tokenAPILink string) (string, string, error) {
-	if debug {
-		fmt.Printf("\ntokenAPILink: %s\n", tokenAPILink)
-	}
+	printDebugf("\ntokenAPILink: %s\n", tokenAPILink)
 
 	resp, err := http.Get(tokenAPILink)
 	if err != nil {
@@ -85,9 +83,7 @@ func accessUsherAPI(usherAPILink string) (map[string]string, error) {
 
 	respString := string(body)
 
-	if debug {
-		fmt.Printf("\nUsher API response:\n%s\n", respString)
-	}
+	printDebugf("\nUsher API response:\n%s\n", respString)
 
 	var re = regexp.MustCompile(qualityStart+"([^\"]+)"+qualityEnd+"\n([^\n]+)\n")
 	match := re.FindAllStringSubmatch(respString, -1)
@@ -144,12 +140,12 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chun
 
 	resp, err := http.Get(edgecastBaseURL + chunkName)
 	if err != nil {
-		os.Exit(1)
+		printFatal(err,"Could not download chunk", edgecastBaseURL + chunkName)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		os.Exit(1)
+		printFatal(err,"Could not download chunk", edgecastBaseURL + chunkName)
 	}
 
 	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
@@ -170,9 +166,7 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 
 	args := []string{"-i", concat, "-c", "copy", "-bsf:a", "aac_adtstoasc", "-fflags", "+genpts", vodID + ".mp4"}
 
-	if debug {
-		fmt.Printf("Running ffmpeg: %s %s\n", ffmpegCMD, args)
-	}
+	printDebugf("Running ffmpeg: %s %s\n", ffmpegCMD, args)
 
 	cmd := exec.Command(ffmpegCMD, args...)
 	var errbuf bytes.Buffer
@@ -205,8 +199,7 @@ func printQualityOptions(vodIDString string) {
 
 	sig, token, err := accessTokenAPI(tokenAPILink)
 	if err != nil {
-		fmt.Println("Couldn't access twitch token api")
-		os.Exit(1)
+		printFatal(err, "Could not access twitch token api")
 	}
 
 	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
@@ -214,12 +207,12 @@ func printQualityOptions(vodIDString string) {
 
 	resp, err := http.Get(usherAPILink)
 	if err != nil {
-		return
+		printFatal(err, "Could not download qualitiy options")
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return
+		printFatal(err, "Could not read qualitiy options")
 	}
 
 	respString := string(body)
@@ -264,9 +257,8 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	_, err := os.Stat(vodIDString + ".mp4")
 
-	if ( err == nil || !os.IsNotExist(err)) {
-		fmt.Printf("Destination file %s already exists!\n", vodIDString + ".mp4")
-		os.Exit(1)
+	if err == nil || !os.IsNotExist(err) {
+		printFatalf(err, "Destination file %s already exists!\n", vodIDString + ".mp4")
 	}
 
 	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
@@ -275,29 +267,21 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	sig, token, err := accessTokenAPI(tokenAPILink)
 	if err != nil {
-		fmt.Println("Couldn't access twitch token api")
-		os.Exit(1)
+		printFatal(err, "Could not access twitch token api")
 	}
 
-	if debug {
-		fmt.Printf("\nSig: %s, Token: %s\n", sig, token)
-	}
+	printDebugf("\nSig: %s, Token: %s\n", sig, token)
 
 	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
 
-	if debug {
-		fmt.Printf("\nusherAPILink: %s\n", usherAPILink)
-	}
+	printDebugf("\nusherAPILink: %s\n", usherAPILink)
 
 	edgecastURLmap, err := accessUsherAPI(usherAPILink)
 	if err != nil {
-		fmt.Println("Count't access usher api")
-		os.Exit(1)
+		printFatal(err, "Count't access usher api")
 	}
 
-	if debug {
-		fmt.Println(edgecastURLmap)
-	}
+	printDebug(edgecastURLmap)
 
 	// I don't see what this does. With this you can't download in source quality (chunked).
 	// Fixed. But "chunked" playlist not always available, have to loop and find max quality manually
@@ -362,22 +346,16 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
 	}
 	
-
-	if debug {
-		fmt.Printf("\nedgecastBaseURL: %s\nm3u8Link: %s\n", edgecastBaseURL, m3u8Link)
-	}
+	printDebugf("\nedgecastBaseURL: %s\nm3u8Link: %s\n", edgecastBaseURL, m3u8Link)
 
 	fmt.Println("Getting Video info")
 
 	m3u8List, err := getM3U8List(m3u8Link)
 	if err != nil {
-		fmt.Println("Couldn't download m3u8 list")
-		os.Exit(1)
+		printFatal(err, "Couldn't download m3u8 list")
 	}
 
-	if debug {
-		fmt.Printf("\nm3u8List:\n%s\n", m3u8List)
-	}
+	printDebugf("\nm3u8List:\n%s\n", m3u8List)
 
 	var re = regexp.MustCompile("\n([^#]+)\n")
 	match := re.FindAllStringSubmatch(m3u8List, -1)
@@ -388,9 +366,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		m3u8Array = append(m3u8Array, element[1])
 	}
 
-	if debug {
-		fmt.Printf("\nItems list: %v\n", m3u8Array)
-	}
+	printDebugf("\nItems list: %v\n", m3u8Array)
 
 	var chunkNum, startChunk int
 
@@ -405,9 +381,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		startChunk = 0
 	}
 
-	if debug {
-		fmt.Printf("\nchunkNum: %v\nstartChunk: %v\n", chunkNum, startChunk)
-	}
+	printDebugf("\nchunkNum: %v\nstartChunk: %v\n", chunkNum, startChunk)
 
 	var wg sync.WaitGroup
 	wg.Add(chunkNum)
@@ -416,8 +390,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	err = os.MkdirAll(newpath, os.ModePerm)
 	if err != nil {
-		fmt.Println("Count't create directory")
-		os.Exit(1)
+		printFatal(err, "Count't create directory")
 	}
 	fmt.Printf("Created temp dir: %s\n", newpath)
 
@@ -449,7 +422,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 func rightVersion() bool {
 	resp, err := http.Get(currentReleaseLink)
 	if err != nil {
-		fmt.Println("Couldn't access github while checking for most recent release.")
+		printFatal(err,"Could not access github while checking for most recent release.")
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -494,7 +467,7 @@ func main() {
 
 	if *qualityInfo {
 		printQualityOptions(*vodID)
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	if (*start != standardStartAndEnd && *end != standardStartAndEnd) {
@@ -502,6 +475,4 @@ func main() {
 	} else {
 		downloadPartVOD(*vodID, "0", "full", *quality);
 	}
-
-	os.Exit(1)
 }
