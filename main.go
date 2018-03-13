@@ -16,13 +16,14 @@ import (
 	"sync"
 	"flag"
 	"runtime"
+	"time"
 )
 
 //new style of edgecast links: http://vod089-ttvnw.akamaized.net/1059582120fbff1a392a_reinierboortman_26420932624_719978480/chunked/highlight-180380104.m3u8
 //old style of edgecast links: http://vod164-ttvnw.akamaized.net/7a16586e4b7ef40300ba_zizaran_27258736688_772341213/chunked/index-dvr.m3u8
 
 const edgecastLinkBegin string = "http://"
-const edgecastLinkBaseEndOld string = "index" 
+const edgecastLinkBaseEndOld string = "index"
 const edgecastLinkBaseEnd string = "highlight"
 const edgecastLinkM3U8End string = ".m3u8"
 const targetdurationStart string = "TARGETDURATION:"
@@ -115,48 +116,89 @@ func getM3U8List(m3u8Link string) (string, error) {
 	Returns the number of chunks to download based of the start and end time and the target duration of a
 	chunk. Adding 1 to overshoot the end by a bit
 */
-func numberOfChunks(sh int, sm int, ss int, eh int, em int, es int, target int) int {
-	start_seconds := sh*3600 + sm*60 + ss
-	end_seconds := eh*3600 + em*60 + es
+func calcChunkCount(sh int, sm int, ss int, eh int, em int, es int, target int) int {
+	start_seconds := toSeconds(sh, sm, ss)
+	end_seconds := toSeconds(eh, em, es)
 
 	return ((end_seconds - start_seconds) / target) + 1
 }
 
 func startingChunk(sh int, sm int, ss int, target int) int {
-	start_seconds := sh*3600 + sm*60 + ss
+	start_seconds := toSeconds(sh, sm, ss)
 	return (start_seconds / target)
 }
 
-func downloadChunk(newpath string, edgecastBaseURL string, chunkNum string, chunkName string, vodID string, wg *sync.WaitGroup) {
+func toSeconds(sh int, sm int, ss int) int {
+	return sh*3600 + sm*60 + ss
+}
+
+func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, chunkName string, vodID string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	sem.Acquire()
 
+	chunkUrl := edgecastBaseURL + chunkName
+
 	if debug {
-		fmt.Printf("Downloading: %s\n", edgecastBaseURL + chunkName)
+		fmt.Printf("Downloading: %s\n", chunkUrl)
 	} else {
 		fmt.Print(".");
 	}
 
-	resp, err := http.Get(edgecastBaseURL + chunkName)
-	if err != nil {
-		printFatal(err,"Could not download chunk", edgecastBaseURL + chunkName)
+	httpClient := http.Client{
+		Timeout: 30 * time.Second,
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		printFatal(err,"Could not download chunk", edgecastBaseURL + chunkName)
+	var body []byte
+
+	maxRetryCount := 3
+	for retryCount := 0; retryCount < maxRetryCount; retryCount ++ {
+		if retryCount > 0 {
+			printDebugf("%d. retry: chunk '%s'\n", retryCount, chunkName)
+		}
+
+		body = nil
+
+		resp, err := httpClient.Get(chunkUrl)
+
+		if err != nil {
+			printFatal(err,"Could not download chunk", chunkName)
+		}
+
+		if resp.StatusCode != 200 {
+			body, _ := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			printDebugf("StatusCode: %d; %s; Could not download chunk '%s'", resp.StatusCode, string(body), chunkUrl)
+			return
+		}
+
+		body, err = ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if err != nil {
+
+			if retryCount == maxRetryCount - 1 {
+				printFatal(err, "Could not download chunk", chunkUrl, "after", maxRetryCount, "tries.")
+			} else {
+				printDebug("Could not download chunk", chunkUrl)
+				printDebug(err)
+			}
+
+		} else {
+			break
+		}
+
 	}
 
-	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkNum+chunkFileExtension, body, 0644)
+	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkCount+chunkFileExtension, body, 0644)
 
 	sem.Release()
 }
 
 
-func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
+func ffmpegCombine(newpath string, chunkCount int, startChunk int, startSecondsRemainder float64, clipDuration int, vodID string) {
 	concat := `concat:`
-	for i := startChunk; i < (startChunk + chunkNum); i++ {
+	for i := startChunk; i < (startChunk + chunkCount); i++ {
 		s := strconv.Itoa(i)
 		concat += newpath + "/" + vodID + "_" + s + chunkFileExtension + "|"
 	}
@@ -164,7 +206,29 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 	concat = concat[0 : len(concat)-1]
 	concat += ``
 
-	args := []string{"-i", concat, "-c", "copy", "-bsf:a", "aac_adtstoasc", "-fflags", "+genpts", vodID + ".mp4"}
+	args := []string {
+		"-ss",
+		strconv.FormatFloat(startSecondsRemainder, 'f', 6, 64),
+	}
+
+	if clipDuration > 0 {
+		args = append(args, []string{
+			"-t",
+			strconv.Itoa(clipDuration),
+		}...)
+	}
+
+	args = append(args, []string{
+		"-i",
+		concat,
+		"-c",
+		"copy",
+		"-bsf:a",
+		"aac_adtstoasc",
+		"-fflags",
+		"+genpts",
+		vodID + ".mp4",
+	}...)
 
 	printDebugf("Running ffmpeg: %s %s\n", ffmpegCMD, args)
 
@@ -178,9 +242,9 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 	}
 }
 
-func deleteChunks(newpath string, chunkNum int, startChunk int, vodID string) {
+func deleteChunks(newpath string, chunkCount int, startChunk int, vodID string) {
 	var del string
-	for i := startChunk; i < (startChunk + chunkNum); i++ {
+	for i := startChunk; i < (startChunk + chunkCount); i++ {
 		s := strconv.Itoa(i)
 		del = newpath + "/" + vodID + "_" + s + chunkFileExtension
 		err := os.Remove(del)
@@ -250,7 +314,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		vodEM, _ = strconv.Atoi(endArray[1]) //end minute
 		vodES, _ = strconv.Atoi(endArray[2]) //end second
 
-		if (vodSH*3600 + vodSM*60 + vodSS) > (vodEH*3600 + vodEM*60 + vodES) {
+		if toSeconds(vodSH, vodSM, vodSS) > toSeconds(vodEH, vodEM, vodES) {
 			wrongInputNotification()
 		}
 	}
@@ -345,7 +409,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 	} else {
 		edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
 	}
-	
+
 	printDebugf("\nedgecastBaseURL: %s\nm3u8Link: %s\n", edgecastBaseURL, m3u8Link)
 
 	fmt.Println("Getting Video info")
@@ -357,36 +421,44 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	printDebugf("\nm3u8List:\n%s\n", m3u8List)
 
-	var re = regexp.MustCompile("\n([^#]+)\n")
-	match := re.FindAllStringSubmatch(m3u8List, -1)
+	fileUris := readFileUris(m3u8List)
 
-	var m3u8Array []string
+	printDebugf("\nItems list: %v\n", fileUris)
 
-	for _, element := range match {
-		m3u8Array = append(m3u8Array, element[1])
-	}
+	var chunkCount, startChunk int
 
-	printDebugf("\nItems list: %v\n", m3u8Array)
-
-	var chunkNum, startChunk int
+	startSecondsRemainder := float64(0)
+	clipDuration := 0
 
 	if end != "full" {
-		targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
-		chunkNum = numberOfChunks(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
-		startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
+		fileDurations, err := readFileDurations(m3u8List)
+
+		if err != nil || len(fileDurations) != len(fileUris) {
+			printDebug("Could not determine real file durations. Using targetDuration as fallback.")
+			targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart): strings.Index(m3u8List, targetdurationEnd)])
+			chunkCount = calcChunkCount(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
+			startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
+		} else {
+
+			startSeconds := toSeconds(vodSH, vodSM, vodSS)
+			clipDuration = toSeconds(vodEH, vodEM, vodES) - startSeconds
+
+			startChunk, chunkCount, startSecondsRemainder = calcStartChunkAndChunkCount(fileDurations, startSeconds, clipDuration)
+		}
+
 	} else {
 		fmt.Println("Dowbloading full vod")
 
-		chunkNum = len(m3u8Array)
+		chunkCount = len(fileUris)
 		startChunk = 0
 	}
 
-	printDebugf("\nchunkNum: %v\nstartChunk: %v\n", chunkNum, startChunk)
+	printDebugf("\nchunkCount: %v\nstartChunk: %v\n", chunkCount, startChunk)
 
 	var wg sync.WaitGroup
-	wg.Add(chunkNum)
+	wg.Add(chunkCount)
 
-	newpath := filepath.Join(".", "_" + vodIDString)
+	newpath := filepath.Join(".", "_"+vodIDString)
 
 	err = os.MkdirAll(newpath, os.ModePerm)
 	if err != nil {
@@ -396,27 +468,92 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	fmt.Println("Starting Download")
 
-	for i := startChunk; i < (startChunk + chunkNum); i++ {
+	for i := startChunk; i < (startChunk + chunkCount); i++ {
 
 		s := strconv.Itoa(i)
-		n := m3u8Array[i]
+		n := fileUris[i]
 		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
 	}
 	wg.Wait()
 
 	fmt.Println("\nCombining parts")
 
-	ffmpegCombine(newpath, chunkNum, startChunk, vodIDString)
+	ffmpegCombine(newpath, chunkCount, startChunk, startSecondsRemainder, clipDuration, vodIDString)
 
 	fmt.Println("Deleting chunks")
 
-	deleteChunks(newpath, chunkNum, startChunk, vodIDString)
+	deleteChunks(newpath, chunkCount, startChunk, vodIDString)
 
 	fmt.Println("Deleting temp dir")
 
 	os.Remove(newpath)
 
 	fmt.Println("All done!")
+}
+
+func calcStartChunkAndChunkCount(chunkDurations []float64, startSeconds int, clipDuration int) (int, int, float64) {
+	startChunk := 0
+	chunkCount := 0
+	startSecondsRemainder := float64(0)
+
+	cumulatedDuration := 0.0
+	for chunk, chunkDuration := range chunkDurations {
+		cumulatedDuration += chunkDuration
+
+		if cumulatedDuration > float64(startSeconds) {
+			startChunk = chunk
+			startSecondsRemainder = float64(startSeconds) - (cumulatedDuration - chunkDuration)
+			break
+		}
+	}
+
+	cumulatedDuration = 0.0
+	minChunkedClipDuration := float64(clipDuration) + startSecondsRemainder
+	for chunk := startChunk; chunk < len(chunkDurations); chunk++ {
+		cumulatedDuration += chunkDurations[chunk]
+
+		if cumulatedDuration > minChunkedClipDuration {
+			chunkCount = chunk - startChunk + 1
+			break
+		}
+	}
+
+	if chunkCount == 0 {
+		chunkCount = len(chunkDurations) - startChunk
+	}
+
+	return startChunk, chunkCount, startSecondsRemainder
+}
+
+func readFileUris(m3u8List string) []string {
+	var fileRegex = regexp.MustCompile("(?m:^[^#\\n]+)")
+	matches := fileRegex.FindAllStringSubmatch(m3u8List, -1)
+	var ret []string
+	for _, match := range matches {
+		ret = append(ret, match[0])
+	}
+	return ret
+}
+
+func readFileDurations(m3u8List string) ([]float64, error) {
+	var fileRegex = regexp.MustCompile("(?m:^#EXTINF:(\\d+(\\.\\d+)?))")
+	matches := fileRegex.FindAllStringSubmatch(m3u8List, -1)
+
+	var ret []float64
+
+	for _, match := range matches {
+
+		fileLength, err := strconv.ParseFloat(match[1], 64)
+
+		if err != nil {
+			printDebug(err)
+			return nil, err
+		}
+
+		ret = append(ret, fileLength)
+	}
+
+	return ret, nil
 }
 
 func rightVersion() bool {
