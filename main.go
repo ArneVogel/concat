@@ -584,7 +584,7 @@ func main() {
 	standardStartAndEnd := "HH MM SS"
 	standardVOD := "123456789"
 	vodID := flag.String("vod", standardVOD, "the vod id https://www.twitch.tv/videos/123456789")
-	start := flag.String("start", standardStartAndEnd, "For example: 0 0 0 for starting at the bedinning of the vod")
+	start := flag.String("start", standardStartAndEnd, "For example: 0 0 0 for starting at the beginning of the vod")
 	end := flag.String("end", standardStartAndEnd, "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
 	debugFlag := flag.Bool("debug", false, "debug output")
