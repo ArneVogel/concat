@@ -223,27 +223,9 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
 	defer os.Remove(tempFile.Name())
 	args := []string{"-f", "concat", "-safe", "0", "-i", tempFile.Name(), "-c", "copy", "-bsf:a", "aac_adtstoasc", "-fflags", "+genpts", vodID + ".mp4"}
 
-
-	if clipDuration > 0 {
-		args = append(args, []string{
-			"-t",
-			strconv.Itoa(clipDuration),
-		}...)
+	if debug {
+		fmt.Printf("Running ffmpeg: %s %s\n", ffmpegCMD, args)
 	}
-
-	args = append(args, []string{
-		"-i",
-		concat,
-		"-c",
-		"copy",
-		"-bsf:a",
-		"aac_adtstoasc",
-		"-fflags",
-		"+genpts",
-		vodID + ".mp4",
-	}...)
-
-	printDebugf("Running ffmpeg: %s %s\n", ffmpegCMD, args)
 
 	cmd := exec.Command(ffmpegCMD, args...)
 	var errbuf bytes.Buffer
@@ -440,7 +422,6 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	var chunkCount, startChunk int
 
-	startSecondsRemainder := float64(0)
 	clipDuration := 0
 
 	if end != "full" {
@@ -456,7 +437,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 			startSeconds := toSeconds(vodSH, vodSM, vodSS)
 			clipDuration = toSeconds(vodEH, vodEM, vodES) - startSeconds
 
-			startChunk, chunkCount, startSecondsRemainder = calcStartChunkAndChunkCount(fileDurations, startSeconds, clipDuration)
+			startChunk, chunkCount, _ = calcStartChunkAndChunkCount(fileDurations, startSeconds, clipDuration)
 		}
 
 	} else {
@@ -491,7 +472,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	fmt.Println("\nCombining parts")
 
-	ffmpegCombine(newpath, chunkCount, startChunk, startSecondsRemainder, clipDuration, vodIDString)
+	ffmpegCombine(newpath, chunkCount, startChunk, vodIDString)
 
 	fmt.Println("Deleting chunks")
 
