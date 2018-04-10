@@ -195,21 +195,34 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 	sem.Release()
 }
 
-
-func ffmpegCombine(newpath string, chunkCount int, startChunk int, startSecondsRemainder float64, clipDuration int, vodID string) {
-	concat := `concat:`
-	for i := startChunk; i < (startChunk + chunkCount); i++ {
+func createConcatFile(newpath string, chunkNum int, startChunk int, vodID string) (*os.File, error) {
+	tempFile, err := ioutil.TempFile(newpath, "twitchVod_"+vodID+"_")
+	if err != nil {
+		return nil, err
+	}
+	defer tempFile.Close()
+	concat := ``
+	for i := startChunk; i < (startChunk + chunkNum); i++ {
 		s := strconv.Itoa(i)
-		concat += newpath + "/" + vodID + "_" + s + chunkFileExtension + "|"
+		filePath, _ := filepath.Abs(newpath + "/" + vodID + "_" + s + chunkFileExtension)
+		concat += "file '" + filePath + "'\n"
 	}
-	//Remove the last "|"
-	concat = concat[0 : len(concat)-1]
-	concat += ``
 
-	args := []string {
-		"-ss",
-		strconv.FormatFloat(startSecondsRemainder, 'f', 6, 64),
+	if _, err := tempFile.WriteString(concat); err != nil {
+		return nil, err
 	}
+	return tempFile, nil
+}
+
+func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
+	tempFile, err := createConcatFile(newpath, chunkNum, startChunk, vodID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer os.Remove(tempFile.Name())
+	args := []string{"-f", "concat", "-safe", "0", "-i", tempFile.Name(), "-c", "copy", "-bsf:a", "aac_adtstoasc", "-fflags", "+genpts", vodID + ".mp4"}
+
 
 	if clipDuration > 0 {
 		args = append(args, []string{
@@ -235,7 +248,7 @@ func ffmpegCombine(newpath string, chunkCount int, startChunk int, startSecondsR
 	cmd := exec.Command(ffmpegCMD, args...)
 	var errbuf bytes.Buffer
 	cmd.Stderr = &errbuf
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		fmt.Println(errbuf.String())
 		fmt.Println("ffmpeg error")
