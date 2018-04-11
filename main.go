@@ -441,7 +441,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		}
 
 	} else {
-		fmt.Println("Dowbloading full vod")
+		fmt.Println("Downloading full vod")
 
 		chunkCount = len(fileUris)
 		startChunk = 0
@@ -456,7 +456,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	err = os.MkdirAll(newpath, os.ModePerm)
 	if err != nil {
-		printFatal(err, "Count't create directory")
+		printFatal(err, "Could not create directory")
 	}
 	fmt.Printf("Created temp dir: %s\n", newpath)
 
