@@ -17,6 +17,8 @@ Calling options:
 + -quality `-start="720p60"` if you don't set the quality concat will try to download the vod in the highest available quality, see -qualityinfo for all available quality options for each vod
 + -qualityinfo `-qualityinfo`
 
+## Deploy to Heroku version
+https://github.com/gyfis/concat-web
 
 ## More info
 [Blog post](https://www.arnevogel.com/standalone-concat-version/) about the tool.
