@@ -565,9 +565,20 @@ func rightVersion() bool {
 	return respString[cs:ce] == versionNumber
 }
 
+//
+func ffmpegIsInstalled() bool {
+	out, _ := exec.Command(ffmpegCMD).Output()
+	return out != nil
+}
+
 func init() {
 	if runtime.GOOS == "windows" {
 	    ffmpegCMD = `ffmpeg.exe`
+	}
+	
+	if !ffmpegIsInstalled() {
+		fmt.Println("Could not find ffmpeg, make sure to have ffmpeg avaliable on your system.")
+		os.Exit(1)
 	}
 }
 
@@ -586,7 +597,8 @@ func main() {
 	flag.Parse()
 
 	debug = *debugFlag;
-
+	
+	
 	if !rightVersion() {
 		fmt.Printf("\nYou are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
 	}
