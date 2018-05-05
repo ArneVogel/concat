@@ -19,10 +19,10 @@ import (
 	"time"
 )
 
-//new style of edgecast links: http://vod089-ttvnw.akamaized.net/1059582120fbff1a392a_reinierboortman_26420932624_719978480/chunked/highlight-180380104.m3u8
-//old style of edgecast links: http://vod164-ttvnw.akamaized.net/7a16586e4b7ef40300ba_zizaran_27258736688_772341213/chunked/index-dvr.m3u8
+//new style of edgecast links: https://vod089-ttvnw.akamaized.net/1059582120fbff1a392a_reinierboortman_26420932624_719978480/chunked/highlight-180380104.m3u8
+//old style of edgecast links: https://vod164-ttvnw.akamaized.net/7a16586e4b7ef40300ba_zizaran_27258736688_772341213/chunked/index-dvr.m3u8
 
-const edgecastLinkBegin string = "http://"
+const edgecastLinkBegin string = "https://"
 const edgecastLinkBaseEndOld string = "index"
 const edgecastLinkBaseEnd string = "highlight"
 const edgecastLinkM3U8End string = ".m3u8"
@@ -252,7 +252,7 @@ func deleteChunks(newpath string, chunkCount int, startChunk int, vodID string) 
 func printQualityOptions(vodIDString string) {
 	vodID, _ := strconv.Atoi(vodIDString)
 
-	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
+	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
@@ -320,7 +320,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		printFatalf(err, "Destination file %s already exists!\n", vodIDString + ".mp4")
 	}
 
-	tokenAPILink := fmt.Sprintf("http://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
+	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
