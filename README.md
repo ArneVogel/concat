@@ -1,9 +1,9 @@
 # concat
 ## Download
-Go to [releases](https://github.com/ArneVogel/concat/releases) for the current build. Download concat.exe if you are on windows and concat if want to use it on ubuntu.
+Go to [releases](https://github.com/ArneVogel/concat/releases) for the current build. Download concat.exe if you are on Windows and concat if want to use it on Ubuntu.
 
 ## Prerequisite
-You need ffmpeg for this tool to work. On windows you can get it [here](https://www.ffmpeg.org/download.html). 
+You need ffmpeg for this tool to work. On Windows you can get it [here](https://www.ffmpeg.org/download.html). 
 On Ubuntu "sudo apt-get install ffmpeg" will work.
 
 ## Usage
