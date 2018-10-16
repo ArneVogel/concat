@@ -16,6 +16,7 @@ Calling options:
 + -end `-end="1 20 30"`
 + -quality `-quality="720p60"` if you don't set the quality concat will try to download the vod in the highest available quality, see -qualityinfo for all available quality options for each vod
 + -qualityinfo `-qualityinfo`
++ -max-concurrent-downloads `-max-concurrent-downloads 5` change the number of chunks that concat will attempt to download simultaneously
 
 ## Deploy to Heroku version
 https://github.com/gyfis/concat-web

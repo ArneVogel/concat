@@ -43,7 +43,7 @@ var ffmpegCMD string = `ffmpeg`
 var debug bool
 var twitch_client_id string = "aokchnui2n8q38g0vezl9hq6htzy4c"
 
-var sem = semaphore.New(5)
+var sem *semaphore.Semaphore
 
 /*
 	Returns the signature and token from a tokenAPILink
@@ -593,12 +593,13 @@ func main() {
 	end := flag.String("end", standardStartAndEnd, "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
 	debugFlag := flag.Bool("debug", false, "debug output")
-
+	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
+	
 	flag.Parse()
 
 	debug = *debugFlag;
-	
-	
+	sem = semaphore.New(*semaphoreLimit)
+
 	if !rightVersion() {
 		fmt.Printf("\nYou are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
 	}
