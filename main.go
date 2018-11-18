@@ -139,6 +139,18 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 	chunkUrl := edgecastBaseURL + chunkName
 
+	downloadPath := newpath + "/" + vodID + "_" + chunkCount + chunkFileExtension
+
+	if _, err := os.Stat(downloadPath); !os.IsNotExist(err) {
+		if debug {
+			fmt.Printf("Skipping %s thats already downloaded\n", chunkUrl)
+		} else {
+			fmt.Print("+")
+		}
+		sem.Release()
+		return
+	}
+
 	if debug {
 		fmt.Printf("Downloading: %s\n", chunkUrl)
 	} else {
@@ -190,7 +202,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 	}
 
-	_ = ioutil.WriteFile(newpath + "/" + vodID+"_"+chunkCount+chunkFileExtension, body, 0644)
+	_ = ioutil.WriteFile(downloadPath, body, 0644)
 
 	sem.Release()
 }
