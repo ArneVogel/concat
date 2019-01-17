@@ -18,6 +18,11 @@ Calling options:
 + -qualityinfo `-qualityinfo`
 + -max-concurrent-downloads `-max-concurrent-downloads 5` change the number of chunks that concat will attempt to download simultaneously
 
+### MacOS
+When downloading the file, if using Safari, the extension will sometimes be switched from no extension to a .dms file, so you have to remove the extension.
+
+Once you get the file without an extension, you have to run chmod +x ./concat_mac in terminal to associate the file as a unix executable or else terminal won't allow you to run it.
+
 ## Deploy to Heroku version
 https://github.com/gyfis/concat-web
 
