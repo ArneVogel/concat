@@ -226,14 +226,14 @@ func createConcatFile(newpath string, chunkNum int, startChunk int, vodID string
 	return tempFile, nil
 }
 
-func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string) {
+func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string, vodSavePath string) {
 	tempFile, err := createConcatFile(newpath, chunkNum, startChunk, vodID)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer os.Remove(tempFile.Name())
-	args := []string{"-f", "concat", "-safe", "0", "-i", tempFile.Name(), "-c", "copy", "-bsf:a", "aac_adtstoasc", "-fflags", "+genpts", vodID + ".mp4"}
+	args := []string{"-f", "concat", "-safe", "0", "-i", tempFile.Name(), "-c", "copy", "-bsf:a", "aac_adtstoasc", "-fflags", "+genpts", vodSavePath}
 
 	if debug {
 		fmt.Printf("Running ffmpeg: %s %s\n", ffmpegCMD, args)
@@ -305,7 +305,7 @@ func wrongInputNotification() {
 	fmt.Println("Call the program with -help for information on how to use it :^)")
 }
 
-func downloadPartVOD(vodIDString string, start string, end string, quality string) {
+func downloadPartVOD(vodIDString string, start string, end string, quality string, downloadPath string) {
 	var vodID, vodSH, vodSM, vodSS, vodEH, vodEM, vodES int
 
 	vodID, _ = strconv.Atoi(vodIDString)
@@ -326,10 +326,12 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		}
 	}
 
-	_, err := os.Stat(vodIDString + ".mp4")
+	vodSavePath := filepath.Join(downloadPath, vodIDString + ".mp4")
+
+	_, err := os.Stat(vodSavePath)
 
 	if err == nil || !os.IsNotExist(err) {
-		printFatalf(err, "Destination file %s already exists!\n", vodIDString + ".mp4")
+		printFatalf(err, "Destination file %s already exists!\n", vodSavePath)
 	}
 
 	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
@@ -464,7 +466,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 	var wg sync.WaitGroup
 	wg.Add(chunkCount)
 
-	newpath := filepath.Join(".", "_"+vodIDString)
+	newpath := filepath.Join(downloadPath, "_"+vodIDString)
 
 	err = os.MkdirAll(newpath, os.ModePerm)
 	if err != nil {
@@ -484,7 +486,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	fmt.Println("\nCombining parts")
 
-	ffmpegCombine(newpath, chunkCount, startChunk, vodIDString)
+	ffmpegCombine(newpath, chunkCount, startChunk, vodIDString, vodSavePath)
 
 	fmt.Println("Deleting chunks")
 
@@ -606,6 +608,7 @@ func main() {
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
 	debugFlag := flag.Bool("debug", false, "debug output")
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
+	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
 	
 	flag.Parse()
 
@@ -627,8 +630,8 @@ func main() {
 	}
 
 	if (*start != standardStartAndEnd && *end != standardStartAndEnd) {
-		downloadPartVOD(*vodID, *start, *end, *quality);
+		downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath);
 	} else {
-		downloadPartVOD(*vodID, "0", "full", *quality);
+		downloadPartVOD(*vodID, "0", "full", *quality, *downloadPath);
 	}
 }
