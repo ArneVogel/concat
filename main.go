@@ -3,19 +3,19 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
-	"regexp"
 	"github.com/abiosoft/semaphore"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"flag"
-	"runtime"
 	"time"
 )
 
@@ -38,6 +38,7 @@ const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
 const versionNumber string = "v0.2.5"
+
 var ffmpegCMD string = `ffmpeg`
 
 var debug bool
@@ -86,7 +87,7 @@ func accessUsherAPI(usherAPILink string) (map[string]string, error) {
 
 	printDebugf("\nUsher API response:\n%s\n", respString)
 
-	var re = regexp.MustCompile(qualityStart+"([^\"]+)"+qualityEnd+"\n([^\n]+)\n")
+	var re = regexp.MustCompile(qualityStart + "([^\"]+)" + qualityEnd + "\n([^\n]+)\n")
 	match := re.FindAllStringSubmatch(respString, -1)
 
 	edgecastURLmap := make(map[string]string)
@@ -154,7 +155,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 	if debug {
 		fmt.Printf("Downloading: %s\n", chunkUrl)
 	} else {
-		fmt.Print(".");
+		fmt.Print(".")
 	}
 
 	httpClient := http.Client{
@@ -164,7 +165,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 	var body []byte
 
 	maxRetryCount := 3
-	for retryCount := 0; retryCount < maxRetryCount; retryCount ++ {
+	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
 		if retryCount > 0 {
 			printDebugf("%d. retry: chunk '%s'\n", retryCount, chunkName)
 		}
@@ -174,7 +175,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 		resp, err := httpClient.Get(chunkUrl)
 
 		if err != nil {
-			printFatal(err,"Could not download chunk", chunkName)
+			printFatal(err, "Could not download chunk", chunkName)
 		}
 
 		if resp.StatusCode != 200 {
@@ -189,7 +190,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 		if err != nil {
 
-			if retryCount == maxRetryCount - 1 {
+			if retryCount == maxRetryCount-1 {
 				printFatal(err, "Could not download chunk", chunkUrl, "after", maxRetryCount, "tries.")
 			} else {
 				printDebug("Could not download chunk", chunkUrl)
@@ -275,7 +276,6 @@ func printQualityOptions(vodIDString string) {
 
 	usherAPILink := fmt.Sprintf("http://usher.twitch.tv/vod/%v?nauthsig=%v&nauth=%v&allow_source=true", vodID, sig, token)
 
-
 	resp, err := http.Get(usherAPILink)
 	if err != nil {
 		printFatal(err, "Could not download qualitiy options")
@@ -291,13 +291,13 @@ func printQualityOptions(vodIDString string) {
 	qualityCount := strings.Count(respString, resolutionStart)
 	for i := 0; i < qualityCount; i++ {
 		rs := strings.Index(respString, resolutionStart) + len(resolutionStart)
-		re := strings.Index(respString[rs:len(respString)], resolutionEnd) + rs
+		re := strings.Index(respString[rs:], resolutionEnd) + rs
 		qs := strings.Index(respString, qualityStart) + len(qualityStart)
-		qe := strings.Index(respString[qs:len(respString)], qualityEnd) + qs
+		qe := strings.Index(respString[qs:], qualityEnd) + qs
 
 		fmt.Printf("resolution: %s, download with -quality=\"%s\"\n", respString[rs:re], respString[qs:qe])
 
-		respString = respString[qe:len(respString)]
+		respString = respString[qe:]
 	}
 }
 
@@ -317,16 +317,16 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		vodSH, _ = strconv.Atoi(startArray[0]) //start Hour
 		vodSM, _ = strconv.Atoi(startArray[1]) //start minute
 		vodSS, _ = strconv.Atoi(startArray[2]) //start second
-		vodEH, _ = strconv.Atoi(endArray[0]) //end hour
-		vodEM, _ = strconv.Atoi(endArray[1]) //end minute
-		vodES, _ = strconv.Atoi(endArray[2]) //end second
+		vodEH, _ = strconv.Atoi(endArray[0])   //end hour
+		vodEM, _ = strconv.Atoi(endArray[1])   //end minute
+		vodES, _ = strconv.Atoi(endArray[2])   //end second
 
 		if toSeconds(vodSH, vodSM, vodSS) > toSeconds(vodEH, vodEM, vodES) {
 			wrongInputNotification()
 		}
 	}
 
-	vodSavePath := filepath.Join(downloadPath, vodIDString + ".mp4")
+	vodSavePath := filepath.Join(downloadPath, vodIDString+".mp4")
 
 	_, err := os.Stat(vodSavePath)
 
@@ -384,7 +384,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 			var key_tmp []string
 
 			// Find max quality
-			for key, _ := range edgecastURLmap {
+			for key := range edgecastURLmap {
 				key_tmp = strings.Split(key, "p")
 
 				resolution_tmp, _ = strconv.Atoi(key_tmp[0])
@@ -395,7 +395,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 					fps_tmp = 0
 				}
 
-				if ( resolution_tmp > resolution_max || resolution_tmp == resolution_max && fps_tmp > fps_max ) {
+				if resolution_tmp > resolution_max || resolution_tmp == resolution_max && fps_tmp > fps_max {
 					quality = key
 					fps_max = fps_tmp
 					resolution_max = resolution_tmp
@@ -414,9 +414,9 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 	}
 	edgecastBaseURL := m3u8Link
 	if strings.Contains(edgecastBaseURL, edgecastLinkBaseEndOld) {
-		edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEndOld)]
+		edgecastBaseURL = edgecastBaseURL[0:strings.Index(edgecastBaseURL, edgecastLinkBaseEndOld)]
 	} else {
-		edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
+		edgecastBaseURL = edgecastBaseURL[0:strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
 	}
 
 	printDebugf("\nedgecastBaseURL: %s\nm3u8Link: %s\n", edgecastBaseURL, m3u8Link)
@@ -443,7 +443,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 		if err != nil || len(fileDurations) != len(fileUris) {
 			printDebug("Could not determine real file durations. Using targetDuration as fallback.")
-			targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart): strings.Index(m3u8List, targetdurationEnd)])
+			targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
 			chunkCount = calcChunkCount(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
 			startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
 		} else {
@@ -567,7 +567,7 @@ func readFileDurations(m3u8List string) ([]float64, error) {
 func rightVersion() bool {
 	resp, err := http.Get(currentReleaseLink)
 	if err != nil {
-		printFatal(err,"Could not access github while checking for most recent release.")
+		printFatal(err, "Could not access github while checking for most recent release.")
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -587,9 +587,9 @@ func ffmpegIsInstalled() bool {
 
 func init() {
 	if runtime.GOOS == "windows" {
-	    ffmpegCMD = `ffmpeg.exe`
+		ffmpegCMD = `ffmpeg.exe`
 	}
-	
+
 	if !ffmpegIsInstalled() {
 		fmt.Println("Could not find ffmpeg, make sure to have ffmpeg avaliable on your system.")
 		os.Exit(1)
@@ -609,14 +609,14 @@ func main() {
 	debugFlag := flag.Bool("debug", false, "debug output")
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
-	
+
 	flag.Parse()
 
-	debug = *debugFlag;
+	debug = *debugFlag
 	sem = semaphore.New(*semaphoreLimit)
 
 	if !rightVersion() {
-		fmt.Printf("\nYou are using an old version of concat. Check out %s for the most recent version.\n\n",currentReleaseLink)
+		fmt.Printf("\nYou are using an old version of concat. Check out %s for the most recent version.\n\n", currentReleaseLink)
 	}
 
 	if *vodID == standardVOD {
@@ -629,9 +629,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	if (*start != standardStartAndEnd && *end != standardStartAndEnd) {
-		downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath);
+	if *start != standardStartAndEnd && *end != standardStartAndEnd {
+		downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath)
 	} else {
-		downloadPartVOD(*vodID, "0", "full", *quality, *downloadPath);
+		downloadPartVOD(*vodID, "0", "full", *quality, *downloadPath)
 	}
 }

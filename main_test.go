@@ -1,11 +1,10 @@
 package main
 
 import (
-	"testing"
 	"fmt"
 	"strings"
+	"testing"
 )
-
 
 // use channel twitch.tv/reckful for testing because he has a legacy account where vods aren't deleted
 const vodString string = "187938112"
@@ -32,7 +31,7 @@ func TestAccessUsherAPI(t *testing.T) {
 	m3u8Link, _ := edgecastURLmap["chunked"]
 
 	edgecastBaseURL := m3u8Link
-	edgecastBaseURL = edgecastBaseURL[0 : strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
+	edgecastBaseURL = edgecastBaseURL[0:strings.Index(edgecastBaseURL, edgecastLinkBaseEnd)]
 
 	//Only checking the end because both
 	//http://fastly.vod.hls.ttvnw.net/903cba256ea3055674be_reckful_26660278144_734937575/chunked/
