@@ -586,16 +586,6 @@ func ffmpegIsInstalled() bool {
 	return out != nil
 }
 
-func init() {
-	if runtime.GOOS == "windows" {
-		ffmpegCMD = `ffmpeg.exe`
-	}
-
-	if !ffmpegIsInstalled() {
-		fmt.Println("Could not find ffmpeg, make sure to have ffmpeg avaliable on your system.")
-		os.Exit(1)
-	}
-}
 
 func main() {
 
@@ -612,6 +602,15 @@ func main() {
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
 
 	flag.Parse()
+
+	if runtime.GOOS == "windows" {
+		ffmpegCMD = `ffmpeg.exe`
+	}
+
+	if !*qualityInfo && !ffmpegIsInstalled() {
+		fmt.Println("Could not find ffmpeg, make sure to have ffmpeg avaliable on your system.")
+		os.Exit(1)
+	}
 
 	debug = *debugFlag
 	sem = semaphore.New(*semaphoreLimit)
