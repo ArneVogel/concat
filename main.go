@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/abiosoft/semaphore"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/abiosoft/semaphore"
 )
 
 //new style of edgecast links: https://vod089-ttvnw.akamaized.net/1059582120fbff1a392a_reinierboortman_26420932624_719978480/chunked/highlight-180380104.m3u8
@@ -39,10 +40,10 @@ const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download
 const currentReleaseEnd string = `/concat"`
 const versionNumber string = "v0.2.5"
 
-var ffmpegCMD string = `ffmpeg`
+var ffmpegCMD = `ffmpeg`
 
 var debug bool
-var twitch_client_id string = "aokchnui2n8q38g0vezl9hq6htzy4c"
+var twitchClientID = "aokchnui2n8q38g0vezl9hq6htzy4c"
 
 var sem *semaphore.Semaphore
 
@@ -118,15 +119,15 @@ func getM3U8List(m3u8Link string) (string, error) {
 	chunk. Adding 1 to overshoot the end by a bit
 */
 func calcChunkCount(sh int, sm int, ss int, eh int, em int, es int, target int) int {
-	start_seconds := toSeconds(sh, sm, ss)
-	end_seconds := toSeconds(eh, em, es)
+	startSeconds := toSeconds(sh, sm, ss)
+	endSeconds := toSeconds(eh, em, es)
 
-	return ((end_seconds - start_seconds) / target) + 1
+	return ((endSeconds - startSeconds) / target) + 1
 }
 
 func startingChunk(sh int, sm int, ss int, target int) int {
-	start_seconds := toSeconds(sh, sm, ss)
-	return (start_seconds / target)
+	startSeconds := toSeconds(sh, sm, ss)
+	return (startSeconds / target)
 }
 
 func toSeconds(sh int, sm int, ss int) int {
@@ -138,13 +139,13 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 	sem.Acquire()
 
-	chunkUrl := edgecastBaseURL + chunkName
+	chunkURL := edgecastBaseURL + chunkName
 
 	downloadPath := newpath + "/" + vodID + "_" + chunkCount + chunkFileExtension
 
 	if _, err := os.Stat(downloadPath); !os.IsNotExist(err) {
 		if debug {
-			fmt.Printf("Skipping %s thats already downloaded\n", chunkUrl)
+			fmt.Printf("Skipping %s thats already downloaded\n", chunkURL)
 		} else {
 			fmt.Print("+")
 		}
@@ -153,7 +154,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 	}
 
 	if debug {
-		fmt.Printf("Downloading: %s\n", chunkUrl)
+		fmt.Printf("Downloading: %s\n", chunkURL)
 	} else {
 		fmt.Print(".")
 	}
@@ -172,7 +173,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 		body = nil
 
-		resp, err := httpClient.Get(chunkUrl)
+		resp, err := httpClient.Get(chunkURL)
 
 		if err != nil {
 			printFatal(err, "Could not download chunk", chunkName)
@@ -181,7 +182,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 		if resp.StatusCode != 200 {
 			body, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
-			printDebugf("StatusCode: %d; %s; Could not download chunk '%s'", resp.StatusCode, string(body), chunkUrl)
+			printDebugf("StatusCode: %d; %s; Could not download chunk '%s'", resp.StatusCode, string(body), chunkURL)
 			return
 		}
 
@@ -191,9 +192,9 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 		if err != nil {
 
 			if retryCount == maxRetryCount-1 {
-				printFatal(err, "Could not download chunk", chunkUrl, "after", maxRetryCount, "tries.")
+				printFatal(err, "Could not download chunk", chunkURL, "after", maxRetryCount, "tries.")
 			} else {
-				printDebug("Could not download chunk", chunkUrl)
+				printDebug("Could not download chunk", chunkURL)
 				printDebug(err)
 			}
 
@@ -265,7 +266,7 @@ func deleteChunks(newpath string, chunkCount int, startChunk int, vodID string) 
 func printQualityOptions(vodIDString string) {
 	vodID, _ := strconv.Atoi(vodIDString)
 
-	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
+	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitchClientID, vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
@@ -334,7 +335,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		printFatalf(err, "Destination file %s already exists!\n", vodSavePath)
 	}
 
-	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitch_client_id, vodID)
+	tokenAPILink := fmt.Sprintf("https://api.twitch.tv/api/vods/%v/access_token?&client_id="+twitchClientID, vodID)
 
 	fmt.Println("Contacting Twitch Server")
 
@@ -377,28 +378,28 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 			fmt.Printf("Downloading in source quality: %s\n", quality)
 		} else {
 			// Quality still not matched
-			resolution_max := 0
-			fps_max := 0
-			resolution_tmp := 0
-			fps_tmp := 0
-			var key_tmp []string
+			resolutionMax := 0
+			fpsMax := 0
+			resolutionTmp := 0
+			fpsTmp := 0
+			var keyTmp []string
 
 			// Find max quality
 			for key := range edgecastURLmap {
-				key_tmp = strings.Split(key, "p")
+				keyTmp = strings.Split(key, "p")
 
-				resolution_tmp, _ = strconv.Atoi(key_tmp[0])
+				resolutionTmp, _ = strconv.Atoi(keyTmp[0])
 
-				if len(key_tmp) > 1 {
-					fps_tmp, _ = strconv.Atoi(key_tmp[1])
+				if len(keyTmp) > 1 {
+					fpsTmp, _ = strconv.Atoi(keyTmp[1])
 				} else {
-					fps_tmp = 0
+					fpsTmp = 0
 				}
 
-				if resolution_tmp > resolution_max || resolution_tmp == resolution_max && fps_tmp > fps_max {
+				if resolutionTmp > resolutionMax || resolutionTmp == resolutionMax && fpsTmp > fpsMax {
 					quality = key
-					fps_max = fps_tmp
-					resolution_max = resolution_tmp
+					fpsMax = fpsTmp
+					resolutionMax = resolutionTmp
 				}
 			}
 
