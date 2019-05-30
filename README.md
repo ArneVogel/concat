@@ -16,8 +16,8 @@ You have to call concat from the console.
 Calling options:
 
 - -vod `-vod="123456789"` specify what vod you want to download or want quality informations on. Call with the number you find in the url of the vod eg (https://www.twitch.tv/videos/123456789 => **123456789**)
-- -start `-start="0 0 0"`
-- -end `-end="1 20 30"`
+- -start `-start="0 0 0"` (default: from the start)
+- -end `-end="1 20 30"` (default: till the end)
 - -quality `-quality="720p60"` if you don't set the quality concat will try to download the vod in the highest available quality, see -qualityinfo for all available quality options for each vod
 - -qualityinfo `-qualityinfo`
 - -max-concurrent-downloads `-max-concurrent-downloads 5` change the number of chunks that concat will attempt to download simultaneously
