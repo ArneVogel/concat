@@ -311,16 +311,17 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	vodID, _ = strconv.Atoi(vodIDString)
 
+	startArray := strings.Split(start, " ")
+	vodSH, _ = strconv.Atoi(startArray[0]) //start Hour
+	vodSM, _ = strconv.Atoi(startArray[1]) //start minute
+	vodSS, _ = strconv.Atoi(startArray[2]) //start second
+
 	if end != "full" {
-		startArray := strings.Split(start, " ")
 		endArray := strings.Split(end, " ")
 
-		vodSH, _ = strconv.Atoi(startArray[0]) //start Hour
-		vodSM, _ = strconv.Atoi(startArray[1]) //start minute
-		vodSS, _ = strconv.Atoi(startArray[2]) //start second
-		vodEH, _ = strconv.Atoi(endArray[0])   //end hour
-		vodEM, _ = strconv.Atoi(endArray[1])   //end minute
-		vodES, _ = strconv.Atoi(endArray[2])   //end second
+		vodEH, _ = strconv.Atoi(endArray[0]) //end hour
+		vodEM, _ = strconv.Atoi(endArray[1]) //end minute
+		vodES, _ = strconv.Atoi(endArray[2]) //end second
 
 		if toSeconds(vodSH, vodSM, vodSS) > toSeconds(vodEH, vodEM, vodES) {
 			wrongInputNotification()
@@ -439,27 +440,27 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	clipDuration := 0
 
-	if end != "full" {
-		fileDurations, err := readFileDurations(m3u8List)
+	fileDurations, err := readFileDurations(m3u8List)
 
-		if err != nil || len(fileDurations) != len(fileUris) {
-			printDebug("Could not determine real file durations. Using targetDuration as fallback.")
-			targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
-			chunkCount = calcChunkCount(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
-			startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
+	if err != nil || len(fileDurations) != len(fileUris) {
+		printDebug("Could not determine real file durations. Using targetDuration as fallback.")
+		targetduration, _ := strconv.Atoi(m3u8List[strings.Index(m3u8List, targetdurationStart)+len(targetdurationStart) : strings.Index(m3u8List, targetdurationEnd)])
+		chunkCount = calcChunkCount(vodSH, vodSM, vodSS, vodEH, vodEM, vodES, targetduration)
+		startChunk = startingChunk(vodSH, vodSM, vodSS, targetduration)
+	} else {
+		startSeconds := toSeconds(vodSH, vodSM, vodSS)
+
+		if end == "full" {
+			sum := 0.0
+			for _, val := range fileDurations {
+				sum += val
+			}
+			clipDuration = int(sum - float64(startSeconds))
 		} else {
-
-			startSeconds := toSeconds(vodSH, vodSM, vodSS)
 			clipDuration = toSeconds(vodEH, vodEM, vodES) - startSeconds
-
-			startChunk, chunkCount, _ = calcStartChunkAndChunkCount(fileDurations, startSeconds, clipDuration)
 		}
 
-	} else {
-		fmt.Println("Downloading full vod")
-
-		chunkCount = len(fileUris)
-		startChunk = 0
+		startChunk, chunkCount, _ = calcStartChunkAndChunkCount(fileDurations, startSeconds, clipDuration)
 	}
 
 	printDebugf("\nchunkCount: %v\nstartChunk: %v\n", chunkCount, startChunk)
@@ -580,22 +581,19 @@ func rightVersion() bool {
 	return respString[cs:ce] == versionNumber
 }
 
-//
 func ffmpegIsInstalled() bool {
 	out, _ := exec.Command(ffmpegCMD).Output()
 	return out != nil
 }
 
-
 func main() {
 
 	qualityInfo := flag.Bool("qualityinfo", false, "if you want to see the avaliable quality options")
 
-	standardStartAndEnd := "HH MM SS"
 	standardVOD := "123456789"
 	vodID := flag.String("vod", standardVOD, "the vod id https://www.twitch.tv/videos/123456789")
-	start := flag.String("start", standardStartAndEnd, "For example: 0 0 0 for starting at the beginning of the vod")
-	end := flag.String("end", standardStartAndEnd, "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
+	start := flag.String("start", "0 0 0", "For example: 0 0 0 for starting at the beginning of the vod")
+	end := flag.String("end", "full", "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
 	debugFlag := flag.Bool("debug", false, "debug output")
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
@@ -634,9 +632,5 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *start != standardStartAndEnd && *end != standardStartAndEnd {
-		downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath, *filename)
-	} else {
-		downloadPartVOD(*vodID, "0", "full", *quality, *downloadPath, *filename)
-	}
+	downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath, *filename)
 }
