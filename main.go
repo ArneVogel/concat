@@ -306,7 +306,7 @@ func wrongInputNotification() {
 	fmt.Println("Call the program with -help for information on how to use it :^)")
 }
 
-func downloadPartVOD(vodIDString string, start string, end string, quality string, downloadPath string) {
+func downloadPartVOD(vodIDString string, start string, end string, quality string, downloadPath string, filename string) {
 	var vodID, vodSH, vodSM, vodSS, vodEH, vodEM, vodES int
 
 	vodID, _ = strconv.Atoi(vodIDString)
@@ -327,7 +327,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		}
 	}
 
-	vodSavePath := filepath.Join(downloadPath, vodIDString+".mp4")
+	vodSavePath := filepath.Join(downloadPath, filename+".mp4")
 
 	_, err := os.Stat(vodSavePath)
 
@@ -600,8 +600,13 @@ func main() {
 	debugFlag := flag.Bool("debug", false, "debug output")
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
+	filename := flag.String("filename", "", "name of the output file (without extension)")
 
 	flag.Parse()
+
+	if *filename == "" {
+		filename = vodID
+	}
 
 	if runtime.GOOS == "windows" {
 		ffmpegCMD = `ffmpeg.exe`
@@ -630,8 +635,8 @@ func main() {
 	}
 
 	if *start != standardStartAndEnd && *end != standardStartAndEnd {
-		downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath)
+		downloadPartVOD(*vodID, *start, *end, *quality, *downloadPath, *filename)
 	} else {
-		downloadPartVOD(*vodID, "0", "full", *quality, *downloadPath)
+		downloadPartVOD(*vodID, "0", "full", *quality, *downloadPath, *filename)
 	}
 }

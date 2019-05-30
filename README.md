@@ -22,6 +22,7 @@ Calling options:
 - -qualityinfo `-qualityinfo`
 - -max-concurrent-downloads `-max-concurrent-downloads 5` change the number of chunks that concat will attempt to download simultaneously
 - -download-path `../path/to/dir` specify where the chunks and end file should be downloaded. By default it is your current working directory
+- -filename `myfile` name of the final output file (without extension). By default it is the `vodID`
 
 ### MacOS
 
