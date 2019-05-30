@@ -47,6 +47,8 @@ var twitchClientID = "aokchnui2n8q38g0vezl9hq6htzy4c"
 
 var sem *semaphore.Semaphore
 
+var chunkProgress = make(chan int)
+
 /*
 	Returns the signature and token from a tokenAPILink
 	signature and token are needed for accessing the usher api
@@ -146,17 +148,14 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 	if _, err := os.Stat(downloadPath); !os.IsNotExist(err) {
 		if debug {
 			fmt.Printf("Skipping %s thats already downloaded\n", chunkURL)
-		} else {
-			fmt.Print("+")
 		}
+		chunkProgress <- 1
 		sem.Release()
 		return
 	}
 
 	if debug {
 		fmt.Printf("Downloading: %s\n", chunkURL)
-	} else {
-		fmt.Print(".")
 	}
 
 	httpClient := http.Client{
@@ -204,6 +203,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 	}
 
+	chunkProgress <- 1
 	_ = ioutil.WriteFile(downloadPath, body, 0644)
 
 	sem.Release()
@@ -484,6 +484,25 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		n := fileUris[i]
 		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
 	}
+
+	go func() {
+		doneChunks := 0
+
+		loadingBarLength := 20.0
+		for {
+			doneChunks += <-chunkProgress
+
+			progress := float64(doneChunks) / float64(chunkCount)
+			fmt.Printf(
+				"\r[%s%s] %d/%d",
+				strings.Repeat("█", int(progress*loadingBarLength)),
+				strings.Repeat(" ", int(loadingBarLength-progress*loadingBarLength)),
+				doneChunks,
+				chunkCount,
+			)
+		}
+	}()
+
 	wg.Wait()
 
 	fmt.Println("\nCombining parts")
