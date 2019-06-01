@@ -48,6 +48,8 @@ var twitchClientID = "aokchnui2n8q38g0vezl9hq6htzy4c"
 var sem *semaphore.Semaphore
 
 var chunkProgress = make(chan int)
+var audio *bool
+var audioOnly *bool
 
 /*
 	Returns the signature and token from a tokenAPILink
@@ -248,6 +250,29 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string, v
 	if err != nil {
 		fmt.Println(errbuf.String())
 		fmt.Println("ffmpeg error")
+	}
+
+	if *audio || *audioOnly {
+		if debug {
+			fmt.Print("Running ffmpeg audio extraction")
+		}
+		fmt.Println("Extracting audio...")
+
+		audioSavePath := vodSavePath[:len(vodSavePath)-3] + "mp3"
+		args := []string{"-i", vodSavePath, "-f", "mp3", "-vn", audioSavePath}
+
+		cmd := exec.Command(ffmpegCMD, args...)
+		var errbuf bytes.Buffer
+		cmd.Stderr = &errbuf
+		err = cmd.Run()
+		if err != nil {
+			fmt.Println(errbuf.String())
+			fmt.Println("ffmpeg error")
+		}
+
+		if *audioOnly {
+			os.Remove(vodSavePath)
+		}
 	}
 }
 
@@ -618,6 +643,8 @@ func main() {
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
 	filename := flag.String("filename", "", "name of the output file (without extension)")
+	audio = flag.Bool("audio", false, "extract audio from the video file")
+	audioOnly = flag.Bool("audio-only", false, "end up only with a audio file")
 
 	flag.Parse()
 
