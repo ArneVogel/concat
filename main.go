@@ -47,6 +47,10 @@ var twitchClientID = "aokchnui2n8q38g0vezl9hq6htzy4c"
 
 var sem *semaphore.Semaphore
 
+var chunkProgress = make(chan int)
+var audio *bool
+var audioOnly *bool
+
 /*
 	Returns the signature and token from a tokenAPILink
 	signature and token are needed for accessing the usher api
@@ -146,17 +150,14 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 	if _, err := os.Stat(downloadPath); !os.IsNotExist(err) {
 		if debug {
 			fmt.Printf("Skipping %s thats already downloaded\n", chunkURL)
-		} else {
-			fmt.Print("+")
 		}
+		chunkProgress <- 1
 		sem.Release()
 		return
 	}
 
 	if debug {
 		fmt.Printf("Downloading: %s\n", chunkURL)
-	} else {
-		fmt.Print(".")
 	}
 
 	httpClient := http.Client{
@@ -204,6 +205,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 	}
 
+	chunkProgress <- 1
 	_ = ioutil.WriteFile(downloadPath, body, 0644)
 
 	sem.Release()
@@ -248,6 +250,29 @@ func ffmpegCombine(newpath string, chunkNum int, startChunk int, vodID string, v
 	if err != nil {
 		fmt.Println(errbuf.String())
 		fmt.Println("ffmpeg error")
+	}
+
+	if *audio || *audioOnly {
+		if debug {
+			fmt.Print("Running ffmpeg audio extraction")
+		}
+		fmt.Println("Extracting audio...")
+
+		audioSavePath := vodSavePath[:len(vodSavePath)-3] + "mp3"
+		args := []string{"-i", vodSavePath, "-f", "mp3", "-vn", audioSavePath}
+
+		cmd := exec.Command(ffmpegCMD, args...)
+		var errbuf bytes.Buffer
+		cmd.Stderr = &errbuf
+		err = cmd.Run()
+		if err != nil {
+			fmt.Println(errbuf.String())
+			fmt.Println("ffmpeg error")
+		}
+
+		if *audioOnly {
+			os.Remove(vodSavePath)
+		}
 	}
 }
 
@@ -484,6 +509,25 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 		n := fileUris[i]
 		go downloadChunk(newpath, edgecastBaseURL, s, n, vodIDString, &wg)
 	}
+
+	go func() {
+		doneChunks := 0
+
+		loadingBarLength := 20.0
+		for {
+			doneChunks += <-chunkProgress
+
+			progress := float64(doneChunks) / float64(chunkCount)
+			fmt.Printf(
+				"\r[%s%s] %d/%d",
+				strings.Repeat("█", int(progress*loadingBarLength)),
+				strings.Repeat(" ", int(loadingBarLength-progress*loadingBarLength)),
+				doneChunks,
+				chunkCount,
+			)
+		}
+	}()
+
 	wg.Wait()
 
 	fmt.Println("\nCombining parts")
@@ -599,6 +643,8 @@ func main() {
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
 	filename := flag.String("filename", "", "name of the output file (without extension)")
+	audio = flag.Bool("audio", false, "extract audio from the video file")
+	audioOnly = flag.Bool("audio-only", false, "end up only with a audio file")
 
 	flag.Parse()
 
