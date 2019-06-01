@@ -21,10 +21,10 @@ Calling options:
 - -quality `-quality="720p60"` if you don't set the quality concat will try to download the vod in the highest available quality, see -qualityinfo for all available quality options for each vod
 - -qualityinfo `-qualityinfo`
 - -max-concurrent-downloads `-max-concurrent-downloads 5` change the number of chunks that concat will attempt to download simultaneously
-- -download-path `../path/to/dir` specify where the chunks and end file should be downloaded. By default it is your current working directory
-- -filename `myfile` name of the final output file (without extension). By default it is the `vodID`
-- -audio extracts the audio from the video file into a mp3
-- -audio-only same as `-audio` however doesnt keep the video file
+- -download-path `-download-path="../path/to/dir"` specify where the chunks and end file should be downloaded. By default it is your current working directory
+- -filename `-filename="myfile"` name of the final output file (without extension). By default it is the `vodID`
+- -audio `-audio` extracts the audio from the video file into a mp3
+- -audio-only `-audio-only` same as `-audio` however doesnt keep the video file
 
 ### MacOS
 
