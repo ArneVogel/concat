@@ -378,7 +378,7 @@ func downloadPartVOD(vodIDString string, start string, end string, quality strin
 
 	edgecastURLmap, err := accessUsherAPI(usherAPILink)
 	if err != nil {
-		printFatal(err, "Count't access usher api")
+		printFatal(err, "Couldn't access usher api")
 	}
 
 	printDebug(edgecastURLmap)
