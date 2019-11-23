@@ -38,7 +38,7 @@ const chunkFileExtension string = ".ts"
 const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
-const versionNumber string = "v0.2.7"
+const versionNumber string = "v0.3.0"
 
 var ffmpegCMD = `ffmpeg`
 
@@ -639,6 +639,7 @@ func main() {
 	start := flag.String("start", "0 0 0", "For example: 0 0 0 for starting at the beginning of the vod")
 	end := flag.String("end", "full", "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
+	my_client_id := flag.String("client-id", twitchClientID, "Use your own client id")
 	debugFlag := flag.Bool("debug", false, "debug output")
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
@@ -663,6 +664,12 @@ func main() {
 
 	debug = *debugFlag
 	sem = semaphore.New(*semaphoreLimit)
+
+	if strings.Compare(*my_client_id, twitchClientID) == 0 {
+		fmt.Println("If you encounter errors looking like: \"Couldn't find quality: chunked\" you might have to use your own client-id. \nUse -client-id to pass it to concat. \nFind out how to get your own client id here: https://github.com/ArneVogel/concat/wiki/FAQ#how-to-get-a-client-id\n")
+	}
+	twitchClientID = *my_client_id
+	printDebugf("\ntwitchClientID: %s\n", twitchClientID)
 
 	if !rightVersion() {
 		fmt.Printf("\nYou are using an old version of concat. Check out %s for the most recent version.\n\n", currentReleaseLink)
