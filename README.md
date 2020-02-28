@@ -24,13 +24,14 @@ Calling options:
 - -download-path `-download-path="../path/to/dir"` specify where the chunks and end file should be downloaded. By default it is your current working directory
 - -filename `-filename="myfile"` name of the final output file (without extension). By default it is the `vodID`
 - -audio `-audio` extracts the audio from the video file into a mp3
-- -audio-only `-audio-only` same as `-audio` however doesnt keep the video file
+- -audio-only `-audio-only` same as `-audio` however doesn't keep the video file
+- -try-count `-try-count=5` amount of times concat should try fetching chunks. Set to 0 for infinite retries
 
 ### MacOS
 
 When downloading the file, if using Safari, the extension will sometimes be switched from no extension to a .dms file, so you have to remove the extension.
 
-Once you get the file without an extension, you have to run chmod +x ./concat_mac in terminal to associate the file as a unix executable or else terminal won't allow you to run it.
+Once you get the file without an extension, you have to run `chmod +x ./concat_mac` in terminal to associate the file as a unix executable or else terminal won't allow you to run it.
 
 ## Deploy to Heroku version
 
