@@ -47,6 +47,7 @@ var twitchClientID = "aokchnui2n8q38g0vezl9hq6htzy4c"
 
 var sem *semaphore.Semaphore
 
+var maxTryCount *int
 var chunkProgress = make(chan int)
 var audio *bool
 var audioOnly *bool
@@ -166,8 +167,7 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 	var body []byte
 
-	maxRetryCount := 3
-	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+	for retryCount := 0; retryCount < *maxTryCount || *maxTryCount == 0; retryCount++ {
 		if retryCount > 0 {
 			printDebugf("%d. retry: chunk '%s'\n", retryCount, chunkName)
 		}
@@ -192,8 +192,8 @@ func downloadChunk(newpath string, edgecastBaseURL string, chunkCount string, ch
 
 		if err != nil {
 
-			if retryCount == maxRetryCount-1 {
-				printFatal(err, "Could not download chunk", chunkURL, "after", maxRetryCount, "tries.")
+			if retryCount == *maxTryCount-1 {
+				printFatal(err, "Could not download chunk", chunkURL, "after", *maxTryCount, "tries.")
 			} else {
 				printDebug("Could not download chunk", chunkURL)
 				printDebug(err)
@@ -639,13 +639,14 @@ func main() {
 	start := flag.String("start", "0 0 0", "For example: 0 0 0 for starting at the beginning of the vod")
 	end := flag.String("end", "full", "For example: 1 20 0 for ending the vod at 1 hour and 20 minutes")
 	quality := flag.String("quality", sourceQuality, "chunked for source quality is automatically used if -quality isn't set")
-	my_client_id := flag.String("client-id", twitchClientID, "Use your own client id")
+	myClientID := flag.String("client-id", twitchClientID, "Use your own client id")
 	debugFlag := flag.Bool("debug", false, "debug output")
 	semaphoreLimit := flag.Int("max-concurrent-downloads", 5, "change maximum number of concurrent downloads")
 	downloadPath := flag.String("download-path", ".", "path where the file will be saved")
 	filename := flag.String("filename", "", "name of the output file (without extension)")
 	audio = flag.Bool("audio", false, "extract audio from the video file")
 	audioOnly = flag.Bool("audio-only", false, "end up only with a audio file")
+	maxTryCount = flag.Int("try-count", 3, "amount of times concat should try fetching chunks. Set to 0 for infinite retries")
 
 	flag.Parse()
 
@@ -665,10 +666,10 @@ func main() {
 	debug = *debugFlag
 	sem = semaphore.New(*semaphoreLimit)
 
-	if strings.Compare(*my_client_id, twitchClientID) == 0 {
+	if strings.Compare(*myClientID, twitchClientID) == 0 {
 		fmt.Println("If you encounter errors looking like: \"Couldn't find quality: chunked\" you might have to use your own client-id. \nUse -client-id to pass it to concat. \nFind out how to get your own client id here: https://github.com/ArneVogel/concat/wiki/FAQ#how-to-get-a-client-id\n")
 	}
-	twitchClientID = *my_client_id
+	twitchClientID = *myClientID
 	printDebugf("\ntwitchClientID: %s\n", twitchClientID)
 
 	if !rightVersion() {
