@@ -93,7 +93,7 @@ func accessUsherAPI(usherAPILink string) (map[string]string, error) {
 
 	printDebugf("\nUsher API response:\n%s\n", respString)
 
-	var re = regexp.MustCompile(qualityStart + "([^\"]+)" + qualityEnd + "\n([^\n]+)\n")
+	var re = regexp.MustCompile(qualityStart + "([^\"]+)" + qualityEnd + "\n([^\n]+)")
 	match := re.FindAllStringSubmatch(respString, -1)
 
 	edgecastURLmap := make(map[string]string)
