@@ -38,7 +38,7 @@ const chunkFileExtension string = ".ts"
 const currentReleaseLink string = "https://github.com/ArneVogel/concat/releases/latest"
 const currentReleaseStart string = `<a href="/ArneVogel/concat/releases/download/`
 const currentReleaseEnd string = `/concat"`
-const versionNumber string = "v0.3.0"
+const versionNumber string = "v0.3.1"
 
 var ffmpegCMD = `ffmpeg`
 
